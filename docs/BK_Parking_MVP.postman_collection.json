@@ -1,0 +1,753 @@
+{
+  "info": {
+    "_postman_id": "c8e10b24-7162-4f10-9b6e-d31fa7d601b1",
+    "name": "BK Parking MVP API Collection (CO3011)",
+    "description": "Bộ sưu tập Postman chuẩn hóa cho toàn bộ REST API của hệ thống BK Parking Management System (MVP). Do TV1 công bố cho TV2 (BE) và TV3, TV4, TV5 (FE).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login - Sinh Vien (User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.accessToken) {",
+                  "        pm.collectionVariables.set('token', json.data.accessToken);",
+                  "        console.log('Saved User JWT Token:', json.data.accessToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"sinhvien01\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập với tài khoản sinh viên (ROLE_USER)"
+          }
+        },
+        {
+          "name": "Login - Quan Tri Vien (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.accessToken) {",
+                  "        pm.collectionVariables.set('token', json.data.accessToken);",
+                  "        console.log('Saved Admin JWT Token:', json.data.accessToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin01\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập với tài khoản Quản trị viên (ROLE_ADMIN)"
+          }
+        },
+        {
+          "name": "Login - Nhan Vien Bao Ve (Staff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.accessToken) {",
+                  "        pm.collectionVariables.set('token', json.data.accessToken);",
+                  "        console.log('Saved Staff JWT Token:', json.data.accessToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"baove01\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập với tài khoản Nhân viên bảo vệ (ROLE_STAFF)"
+          }
+        },
+        {
+          "name": "Get Current User (/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Lấy thông tin tài khoản đang đăng nhập và thông tin gói cước đang sở hữu"
+          }
+        },
+        {
+          "name": "Get Demo Accounts List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/demo-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "demo-accounts"
+              ]
+            },
+            "description": "Danh sách các tài khoản mẫu phục vụ demo và kiểm thử nhanh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Public View",
+      "item": [
+        {
+          "name": "List Parking Lots (Chỗ trống công khai)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/parking-lots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "public",
+                "parking-lots"
+              ]
+            },
+            "description": "Hiển thị danh sách bãi xe, sức chứa, số xe đang đỗ và số chỗ trống thời gian thực"
+          }
+        },
+        {
+          "name": "Get Parking Lot Details (Chi tiết bãi công khai)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/public/parking-lots/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "public",
+                "parking-lots",
+                "1"
+              ]
+            },
+            "description": "Xem chi tiết thông tin và tình trạng chỗ trống của 1 bãi xe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. User Portal",
+      "item": [
+        {
+          "name": "Get My Vehicles (Danh sách xe của tôi)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/my",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "my"
+              ]
+            },
+            "description": "Xem danh sách xe đã đăng ký và trạng thái kiểm duyệt của cá nhân"
+          }
+        },
+        {
+          "name": "Register New Vehicle (Đăng ký xe mới)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"licensePlate\": \"59X3-12345\",\n  \"vehicleType\": \"MOTORBIKE\",\n  \"brand\": \"Honda\",\n  \"model\": \"AirBlade 125\",\n  \"color\": \"Đen - Xám\",\n  \"registrationCertificateUrl\": \"https://cdn.bkparking.vn/cavet/59X312345.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles"
+              ]
+            },
+            "description": "Đăng ký phương tiện mới vào hệ thống (tối đa 2 xe PENDING/APPROVED)"
+          }
+        },
+        {
+          "name": "Get Vehicle QR Code (Lấy mã QR gửi xe)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vehicles/1/qr",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vehicles",
+                "1",
+                "qr"
+              ]
+            },
+            "description": "Lấy mã QR điện tử gắn với phương tiện đã được duyệt (APPROVED)"
+          }
+        },
+        {
+          "name": "Get Parking Packages List (Xem gói đỗ xe mẫu)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "packages"
+              ]
+            },
+            "description": "Xem danh sách các gói cước gửi xe mẫu (tháng, học kỳ)"
+          }
+        },
+        {
+          "name": "Get My Parking History (Lịch sử gửi xe cá nhân)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/my-history?page=0&size=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "my-history"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lịch sử lượt gửi xe vào/ra của cá nhân người dùng"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Admin Portal",
+      "item": [
+        {
+          "name": "Get Dashboard Summary (Thống kê KPI tổng quan)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "summary"
+              ]
+            },
+            "description": "Lấy các chỉ số KPI: tổng bãi, sức chứa, số xe đang đỗ, tỷ lệ lấp đầy, số xe chờ duyệt"
+          }
+        },
+        {
+          "name": "List Parking Lots (Quản lý bãi đỗ)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/parking-lots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "parking-lots"
+              ]
+            },
+            "description": "Danh sách các bãi xe cho màn hình Quản lý bãi của Quản trị viên"
+          }
+        },
+        {
+          "name": "Update Parking Lot Capacity (Sửa sức chứa bãi)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bãi xe A - Tòa H6 Mở rộng\",\n  \"capacity\": 180,\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/parking-lots/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "parking-lots",
+                "1"
+              ]
+            },
+            "description": "Cập nhật sức chứa bãi xe (bắt buộc capacity >= occupiedCount)"
+          }
+        },
+        {
+          "name": "List Vehicles for Approval (Hàng chờ kiểm duyệt xe)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vehicles?status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            },
+            "description": "Danh sách xe chờ duyệt hoặc lọc theo trạng thái (PENDING, APPROVED, REJECTED)"
+          }
+        },
+        {
+          "name": "Approve Vehicle (Phê duyệt phương tiện)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/vehicles/2/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vehicles",
+                "2",
+                "approve"
+              ]
+            },
+            "description": "Admin phê duyệt phương tiện đủ điều kiện"
+          }
+        },
+        {
+          "name": "Reject Vehicle (Từ chối phương tiện)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Ảnh chụp giấy đăng ký xe bị mờ, không khớp số khung\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/vehicles/2/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "vehicles",
+                "2",
+                "reject"
+              ]
+            },
+            "description": "Admin từ chối duyệt phương tiện kèm theo lý do cụ thể"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Staff Portal",
+      "item": [
+        {
+          "name": "Verify QR Code (Xác thực mã QR tại chốt)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrToken\": \"BKP-QR-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"parkingLotId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/qr/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "qr",
+                "verify"
+              ]
+            },
+            "description": "Bảo vệ quét mã QR để kiểm tra tính hợp lệ của xe, gói cước và trạng thái lượt đỗ"
+          }
+        },
+        {
+          "name": "Check-in Vehicle (Ghi nhận xe VÀO bãi)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": 1,\n  \"parkingLotId\": 1,\n  \"gate\": \"GATE_A_IN_01\",\n  \"notes\": \"Xe sinh viên vào ca sáng\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/sessions/check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "sessions",
+                "check-in"
+              ]
+            },
+            "description": "Ghi nhận xe vào bãi xe (kiểm tra bãi đầy, chống tạo 2 session mở)"
+          }
+        },
+        {
+          "name": "Check-out Vehicle (Ghi nhận xe RA bãi)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": 1,\n  \"gate\": \"GATE_A_OUT_01\",\n  \"notes\": \"Xe ra ca trưa an toàn\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/sessions/check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "sessions",
+                "check-out"
+              ]
+            },
+            "description": "Đóng phiên đỗ xe, giải phóng chỗ trống tức thì"
+          }
+        },
+        {
+          "name": "Search Vehicles (Tra cứu phương tiện)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/vehicles/search?query=59X3-12345",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "vehicles",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "59X3-12345"
+                }
+              ]
+            },
+            "description": "Tra cứu phương tiện theo Biển số, MSSV hoặc tên chủ sở hữu"
+          }
+        },
+        {
+          "name": "Get Active Sessions (Danh sách xe đang đỗ trong bãi)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/sessions/active?parkingLotId=1&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "sessions",
+                "active"
+              ],
+              "query": [
+                {
+                  "key": "parkingLotId",
+                  "value": "1"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Xem danh sách toàn bộ xe đang gửi thực tế trong bãi"
+          }
+        },
+        {
+          "name": "Get Staff Session History (Lịch sử ca trực gần nhất)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/staff/sessions/history?parkingLotId=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "staff",
+                "sessions",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "parkingLotId",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Bảng theo dõi các lượt quét gần nhất tại trạm kiểm soát"
+          }
+        }
+      ]
+    }
+  ]
+}
