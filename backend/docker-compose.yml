@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bk-parking-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: bk_parking
+      POSTGRES_USER: bkparking
+      POSTGRES_PASSWORD: bkparking123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bkparking -d bk_parking"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bk-parking-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: bk_parking
+      DB_USER: bkparking
+      DB_PASSWORD: bkparking123
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bk_parking
+      SPRING_DATASOURCE_USERNAME: bkparking
+      SPRING_DATASOURCE_PASSWORD: bkparking123
+      JWT_SECRET: BkParkingMvpSecretKeyForJwtSigning2026VeryLongAndSecureKey123456
+      JWT_EXPIRATION_MS: 86400000
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+
+volumes:
+  pgdata:
+    driver: local
