@@ -8,6 +8,7 @@ import { UserPortalPage } from '../features/user-portal/pages/UserPortalPage'
 import { AdminPortalLayout } from '../features/admin-portal/layout/AdminPortalLayout'
 import { AdminDashboardPage } from '../features/admin-portal/pages/AdminDashboardPage'
 import { AdminParkingLotsPage } from '../features/admin-portal/pages/AdminParkingLotsPage'
+import { AdminVehiclesPage } from '../features/admin-portal/pages/AdminVehiclesPage'
 import { LoginPage, type LoginDestinations } from '../features/auth/LoginPage'
 import { getAccessToken, getStoredRole } from '../features/auth/authApi'
 
@@ -68,6 +69,7 @@ export function App() {
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<AdminDashboardPage />} />
           <Route path="parking-lots" element={<AdminParkingLotsPage />} />
+          <Route path="vehicles" element={<AdminVehiclesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/user/overview" replace />} />
