@@ -10,6 +10,7 @@ import { AdminDashboardPage } from '../features/admin-portal/pages/AdminDashboar
 import { AdminParkingLotsPage } from '../features/admin-portal/pages/AdminParkingLotsPage'
 import { AdminVehiclesPage } from '../features/admin-portal/pages/AdminVehiclesPage'
 import { AdminReservationsPage } from '../features/admin-portal/pages/AdminReservationsPage'
+import { AdminPaymentsPage, AdminReportsPage } from '../features/admin-portal/pages/AdminFinancePages'
 import { LoginPage, type LoginDestinations } from '../features/auth/LoginPage'
 import { getAccessToken, getStoredRole } from '../features/auth/authApi'
 
@@ -72,6 +73,8 @@ export function App() {
           <Route path="parking-lots" element={<AdminParkingLotsPage />} />
           <Route path="vehicles" element={<AdminVehiclesPage />} />
           <Route path="reservations" element={<AdminReservationsPage />} />
+          <Route path="payments" element={<AdminPaymentsPage />} />
+          <Route path="reports" element={<AdminReportsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/user/overview" replace />} />
