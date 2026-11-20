@@ -3,13 +3,10 @@ import { Link, NavLink, Outlet } from 'react-router'
 import { userPortalNavigation } from '../navigation'
 import { Avatar } from '../../../shared/components/Avatar'
 import { Icon } from '../../../shared/components/Icon'
-
-const currentUser = {
-  name: 'Nguyễn Văn An',
-  role: 'Cán bộ CSVC',
-}
+import { useAuth } from '../../../shared/auth/AuthContext'
 
 export function UserPortalLayout() {
+  const { user, isLoading: isAuthLoading, logout } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
@@ -129,25 +126,47 @@ export function UserPortalLayout() {
                 onClick={() => setIsProfileMenuOpen((value) => !value)}
                 type="button"
               >
-                <Avatar name={currentUser.name} />
+                <Avatar name={user?.fullName ?? 'Bạn'} />
                 <span className="hidden min-w-0 sm:block">
                   <span className="block max-w-36 truncate text-xs font-semibold text-slate-900">
-                    {currentUser.name}
+                    {user?.fullName ?? (isAuthLoading ? 'Đang xác thực…' : 'Đăng nhập')}
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-slate-500">{currentUser.role}</span>
+                  <span className="mt-0.5 block text-[11px] text-slate-500">{user?.roleName ?? 'BK Parking'}</span>
                 </span>
                 <Icon name="chevron-down" className="hidden size-4 text-slate-500 sm:block" />
               </button>
 
               {isProfileMenuOpen ? (
                 <div className="absolute right-0 top-12 z-30 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                  <Link
-                    className="block rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                    to="/user/settings"
-                  >
-                    Cài đặt tài khoản
-                  </Link>
+                  {user ? (
+                    <>
+                      <Link
+                        className="block rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                        to="/user/settings"
+                      >
+                        Cài đặt tài khoản
+                      </Link>
+                      <button
+                        className="block w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false)
+                          logout()
+                        }}
+                        type="button"
+                      >
+                        Đăng xuất
+                      </button>
+                    </>
+                  ) : (
+                    <Link
+                      className="block rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                      to="/user/overview?tab=qr"
+                    >
+                      Đăng nhập để xem mã QR
+                    </Link>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -155,7 +174,7 @@ export function UserPortalLayout() {
         </header>
 
         <main className="min-h-[calc(100vh-4rem)] px-5 py-7 sm:px-8 sm:py-9 lg:px-10">
-          <div className="mx-auto w-full max-w-[960px]">
+          <div className="mx-auto w-full max-w-[928px]">
             <Outlet />
           </div>
         </main>

@@ -3,13 +3,17 @@ import type { ApiResponse, LoginRequest, LoginResponse } from '../../types/api'
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1').replace(/\/$/, '')
 
 export function getAccessToken() {
-  return localStorage.getItem('accessToken') || localStorage.getItem('bk_token')
+  return localStorage.getItem('accessToken')
+    || localStorage.getItem('bk_token')
+    || localStorage.getItem('bkparking.accessToken')
 }
 
 export function clearSession() {
   localStorage.removeItem('accessToken')
   localStorage.removeItem('bk_token')
+  localStorage.removeItem('bkparking.accessToken')
   localStorage.removeItem('bk_user')
+  window.dispatchEvent(new Event('bkparking:auth-changed'))
 }
 
 export function getStoredRole(): string | undefined {
@@ -39,4 +43,6 @@ export function saveSession(result: LoginResponse) {
   localStorage.setItem('bk_user', JSON.stringify(result.user))
   localStorage.setItem('bk_token', result.accessToken)
   localStorage.setItem('accessToken', result.accessToken)
+  localStorage.setItem('bkparking.accessToken', result.accessToken)
+  window.dispatchEvent(new Event('bkparking:auth-changed'))
 }
