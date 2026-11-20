@@ -11,6 +11,9 @@ export type IconName =
   | 'chevron-down'
   | 'menu'
   | 'close'
+  | 'search'
+  | 'plus'
+  | 'minus'
 
 type IconProps = {
   name: IconName
@@ -54,6 +57,12 @@ export function Icon({ name, className = 'size-5' }: IconProps) {
       return <svg {...common}><path d="M4 6h16M4 12h16M4 18h16" /></svg>
     case 'close':
       return <svg {...common}><path d="m6 6 12 12M18 6 6 18" /></svg>
+    case 'search':
+      return <svg {...common}><circle cx="10.8" cy="10.8" r="6.3" /><path d="m15.5 15.5 4.2 4.2" /></svg>
+    case 'plus':
+      return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>
+    case 'minus':
+      return <svg {...common}><path d="M5 12h14" /></svg>
   }
 
   return null

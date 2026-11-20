@@ -32,6 +32,15 @@ public class Vehicle {
     @Column(name = "registration_doc_url")
     private String registrationDocUrl;
 
+    @Column(name = "registration_doc_back_url")
+    private String registrationDocBackUrl;
+
+    @Column(name = "vehicle_photo_url")
+    private String vehiclePhotoUrl;
+
+    @Column(name = "owner_relationship", nullable = false, length = 20)
+    private String ownerRelationship = "SELF";
+
     @Column(nullable = false, length = 20)
     private String status = "PENDING";
 
@@ -72,6 +81,12 @@ public class Vehicle {
     public void setColor(String color) { this.color = color; }
     public String getRegistrationDocUrl() { return registrationDocUrl; }
     public void setRegistrationDocUrl(String registrationDocUrl) { this.registrationDocUrl = registrationDocUrl; }
+    public String getRegistrationDocBackUrl() { return registrationDocBackUrl; }
+    public void setRegistrationDocBackUrl(String registrationDocBackUrl) { this.registrationDocBackUrl = registrationDocBackUrl; }
+    public String getVehiclePhotoUrl() { return vehiclePhotoUrl; }
+    public void setVehiclePhotoUrl(String vehiclePhotoUrl) { this.vehiclePhotoUrl = vehiclePhotoUrl; }
+    public String getOwnerRelationship() { return ownerRelationship; }
+    public void setOwnerRelationship(String ownerRelationship) { this.ownerRelationship = ownerRelationship; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getRejectionReason() { return rejectionReason; }

@@ -18,11 +18,14 @@ import vn.edu.hcmut.bkparking.repository.VehicleRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class VehicleService {
+    private static final List<String> COUNTED_VEHICLE_STATUSES = List.of("PENDING", "APPROVED");
+    private static final List<String> STANDARD_VEHICLE_TYPES = List.of("MOTORBIKE", "ELECTRIC_BIKE", "BICYCLE");
 
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
@@ -58,6 +61,25 @@ public class VehicleService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public VehicleEligibilityResponseDto getEligibility(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy người dùng"));
+        long registeredCount = vehicleRepository.countByUserIdAndStatusIn(userId, COUNTED_VEHICLE_STATUSES);
+        long pendingCount = vehicleRepository.countByUserIdAndStatusIn(userId, List.of("PENDING"));
+        long approvedCount = vehicleRepository.countByUserIdAndStatusIn(userId, List.of("APPROVED"));
+
+        List<String> allowedTypes = new java.util.ArrayList<>(STANDARD_VEHICLE_TYPES);
+        if (VehicleEligibilityPolicy.isFacultyOrStaff(user)) allowedTypes.add("CAR");
+        return new VehicleEligibilityResponseDto(
+                maxVehiclesPerUser,
+                registeredCount,
+                pendingCount,
+                approvedCount,
+                registeredCount < maxVehiclesPerUser,
+                allowedTypes);
+    }
+
     /**
      * [User] Đăng ký phương tiện mới (trạng thái ban đầu PENDING)
      */
@@ -71,7 +93,7 @@ public class VehicleService {
         }
 
         // 2. Kiểm tra giới hạn số lượng phương tiện
-        long currentCount = vehicleRepository.countByUserIdAndStatusIn(userId, List.of("PENDING", "APPROVED"));
+        long currentCount = vehicleRepository.countByUserIdAndStatusIn(userId, COUNTED_VEHICLE_STATUSES);
         if (currentCount >= maxVehiclesPerUser) {
             throw new BusinessException(ErrorCode.VEHICLE_LIMIT_EXCEEDED,
                     "Mỗi tài khoản chỉ được đăng ký tối đa " + maxVehiclesPerUser + " phương tiện hợp lệ");
@@ -81,21 +103,57 @@ public class VehicleService {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy người dùng"));
 
+        String vehicleType = request.getVehicleType().trim().toUpperCase();
+        if (!Set.of("MOTORBIKE", "ELECTRIC_BIKE", "BICYCLE", "CAR").contains(vehicleType)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Loại phương tiện không được hỗ trợ");
+        }
+        if ("CAR".equals(vehicleType) && !VehicleEligibilityPolicy.isFacultyOrStaff(owner)) {
+            throw new BusinessException(ErrorCode.VEHICLE_TYPE_NOT_ALLOWED);
+        }
+        String relationship = request.getOwnerRelationship() == null || request.getOwnerRelationship().isBlank()
+                ? "SELF"
+                : request.getOwnerRelationship().trim().toUpperCase();
+        if (!Set.of("SELF", "RELATIVE").contains(relationship)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "ownerRelationship phải là SELF hoặc RELATIVE");
+        }
+
         // 4. Tạo entity Vehicle
         Vehicle vehicle = new Vehicle();
         vehicle.setUser(owner);
         vehicle.setLicensePlate(normalizedPlate);
-        vehicle.setVehicleType(request.getVehicleType().trim().toUpperCase());
+        vehicle.setVehicleType(vehicleType);
         vehicle.setBrand(request.getBrand());
         vehicle.setModel(request.getModel());
         vehicle.setColor(request.getColor());
         vehicle.setRegistrationDocUrl(request.getRegistrationDocUrl());
+        vehicle.setRegistrationDocBackUrl(request.getRegistrationDocBackUrl());
+        vehicle.setVehiclePhotoUrl(request.getVehiclePhotoUrl());
+        vehicle.setOwnerRelationship(relationship);
         vehicle.setStatus("PENDING");
         vehicle.setCreatedAt(LocalDateTime.now());
         vehicle.setUpdatedAt(LocalDateTime.now());
 
         Vehicle saved = vehicleRepository.save(vehicle);
         return mapToUserDto(saved);
+    }
+
+    public UserVehicleResponseDto cancelVehicle(Long userId, Long vehicleId) {
+        Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy phương tiện"));
+        if (!vehicle.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if ("CANCELED".equalsIgnoreCase(vehicle.getStatus())) {
+            return mapToUserDto(vehicle);
+        }
+        if (parkingSessionRepository.findByVehicleIdAndStatus(vehicleId, "ACTIVE").isPresent()) {
+            throw new BusinessException(ErrorCode.VEHICLE_HAS_ACTIVE_SESSION);
+        }
+
+        vehicle.setStatus("CANCELED");
+        vehicle.setQrToken(null);
+        vehicle.setUpdatedAt(LocalDateTime.now());
+        return mapToUserDto(vehicleRepository.save(vehicle));
     }
 
     /**
@@ -131,7 +189,7 @@ public class VehicleService {
                 vehicle.getUser().getFullName(),
                 vehicle.getUser().getCode(),
                 vehicle.getQrToken(),
-                !activePackages.isEmpty(),
+                VehicleEligibilityPolicy.isEligibleForParking(vehicle, activePackages),
                 activeSession.isPresent(),
                 activeSession.map(s -> s.getParkingLot().getName()).orElse(null)
         );
@@ -231,4 +289,5 @@ public class VehicleService {
         String lotName = activeSession.map(s -> s.getParkingLot().getName()).orElse(null);
         return AdminVehicleResponseDto.fromEntity(v, isParked, lotName);
     }
+
 }

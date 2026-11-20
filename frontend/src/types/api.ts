@@ -5,8 +5,10 @@
 
 export type RoleCode = 'ROLE_USER' | 'ROLE_ADMIN' | 'ROLE_STAFF';
 export type PortalTarget = 'USER_PORTAL' | 'ADMIN_PORTAL' | 'STAFF_PORTAL';
-export type VehicleType = 'MOTORBIKE' | 'ELECTRIC_BIKE' | 'BICYCLE';
-export type VehicleStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'LOCKED';
+export type VehicleType = 'MOTORBIKE' | 'ELECTRIC_BIKE' | 'BICYCLE' | 'CAR';
+export type VehicleStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'LOCKED' | 'CANCELED';
+export type VehicleDocumentType = 'REGISTRATION_FRONT' | 'REGISTRATION_BACK' | 'VEHICLE_PHOTO';
+export type VehicleOwnerRelationship = 'SELF' | 'RELATIVE';
 export type ParkingLotStatus = 'OPEN' | 'FULL' | 'MAINTENANCE' | 'CLOSED';
 export type SessionStatus = 'ACTIVE' | 'COMPLETED';
 export type RecommendedAction = 'CHECK_IN' | 'CHECK_OUT' | 'DENY';
@@ -155,6 +157,30 @@ export interface CreateVehicleRequest {
   model?: string;
   color?: string;
   registrationDocUrl?: string;
+  registrationDocFrontId?: number;
+  registrationDocBackId?: number;
+  vehiclePhotoId?: number;
+  registrationDocBackUrl?: string;
+  vehiclePhotoUrl?: string;
+  ownerRelationship?: VehicleOwnerRelationship;
+}
+
+export interface VehicleEligibilityDto {
+  maxVehicleLimit: number;
+  registeredVehicleCount: number;
+  pendingVehicleCount: number;
+  approvedVehicleCount: number;
+  canRegister: boolean;
+  allowedVehicleTypes: VehicleType[];
+}
+
+export interface VehicleDocumentUploadResponse {
+  id: number;
+  url: string;
+  purpose: VehicleDocumentType;
+  originalFileName: string;
+  contentType: 'image/jpeg' | 'image/png';
+  sizeBytes: number;
 }
 
 export interface RejectVehicleRequest {
@@ -168,6 +194,10 @@ export interface UserVehicleDto {
   brand: string | null;
   model: string | null;
   color: string | null;
+  registrationDocUrl: string | null;
+  registrationDocBackUrl: string | null;
+  vehiclePhotoUrl: string | null;
+  ownerRelationship: VehicleOwnerRelationship;
   status: VehicleStatus;
   rejectionReason: string | null;
   qrToken: string | null;
@@ -181,7 +211,6 @@ export interface AdminVehicleDto extends UserVehicleDto {
   ownerName: string;
   ownerCode: string;
   ownerEmail: string;
-  registrationDocUrl: string | null;
   reviewerId: number | null;
   reviewerName: string | null;
   reviewedAt: string | null;

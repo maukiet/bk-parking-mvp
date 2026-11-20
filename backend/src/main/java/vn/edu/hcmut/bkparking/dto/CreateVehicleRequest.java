@@ -14,6 +14,12 @@ public class CreateVehicleRequest {
     private String model;
     private String color;
     private String registrationDocUrl;
+    private Long registrationDocFrontId;
+    private Long registrationDocBackId;
+    private Long vehiclePhotoId;
+    private String registrationDocBackUrl;
+    private String vehiclePhotoUrl;
+    private String ownerRelationship = "SELF";
 
     public CreateVehicleRequest() {}
 
@@ -43,4 +49,22 @@ public class CreateVehicleRequest {
 
     public String getRegistrationDocUrl() { return registrationDocUrl; }
     public void setRegistrationDocUrl(String registrationDocUrl) { this.registrationDocUrl = registrationDocUrl; }
+
+    public Long getRegistrationDocFrontId() { return registrationDocFrontId; }
+    public void setRegistrationDocFrontId(Long registrationDocFrontId) { this.registrationDocFrontId = registrationDocFrontId; }
+
+    public Long getRegistrationDocBackId() { return registrationDocBackId; }
+    public void setRegistrationDocBackId(Long registrationDocBackId) { this.registrationDocBackId = registrationDocBackId; }
+
+    public Long getVehiclePhotoId() { return vehiclePhotoId; }
+    public void setVehiclePhotoId(Long vehiclePhotoId) { this.vehiclePhotoId = vehiclePhotoId; }
+
+    public String getRegistrationDocBackUrl() { return registrationDocBackUrl; }
+    public void setRegistrationDocBackUrl(String registrationDocBackUrl) { this.registrationDocBackUrl = registrationDocBackUrl; }
+
+    public String getVehiclePhotoUrl() { return vehiclePhotoUrl; }
+    public void setVehiclePhotoUrl(String vehiclePhotoUrl) { this.vehiclePhotoUrl = vehiclePhotoUrl; }
+
+    public String getOwnerRelationship() { return ownerRelationship; }
+    public void setOwnerRelationship(String ownerRelationship) { this.ownerRelationship = ownerRelationship; }
 }

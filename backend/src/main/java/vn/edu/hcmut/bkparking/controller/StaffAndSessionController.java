@@ -16,6 +16,7 @@ import vn.edu.hcmut.bkparking.entity.*;
 import vn.edu.hcmut.bkparking.repository.*;
 import vn.edu.hcmut.bkparking.security.UserPrincipal;
 import vn.edu.hcmut.bkparking.service.ParkingSessionService;
+import vn.edu.hcmut.bkparking.service.VehicleEligibilityPolicy;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -69,7 +70,7 @@ public class StaffAndSessionController {
         Optional<ParkingSession> activeSession = parkingSessionRepository.findByVehicleIdAndStatus(vehicle.getId(), "ACTIVE");
 
         boolean isApproved = "APPROVED".equalsIgnoreCase(vehicle.getStatus());
-        boolean hasPackage = !activePackages.isEmpty();
+        boolean hasPackage = VehicleEligibilityPolicy.isEligibleForParking(vehicle, activePackages);
         boolean validForEntry = isApproved && hasPackage && activeSession.isEmpty();
         boolean validForExit = activeSession.isPresent();
 
@@ -104,7 +105,10 @@ public class StaffAndSessionController {
         result.put("ownerName", vehicle.getUser().getFullName());
         result.put("ownerCode", vehicle.getUser().getCode());
         result.put("packageEligible", hasPackage);
-        result.put("packageName", hasPackage ? activePackages.get(0).getParkingPackage().getName() : null);
+        String packageName = VehicleEligibilityPolicy.isPayrollEligibleCar(vehicle)
+                ? "Thu qua bảng lương"
+                : !activePackages.isEmpty() ? activePackages.get(0).getParkingPackage().getName() : null;
+        result.put("packageName", packageName);
         result.put("validForEntry", validForEntry);
         result.put("validForExit", validForExit);
         result.put("activeSession", activeSession.map(this::toSessionDto).orElse(null));

@@ -1,12 +1,13 @@
 # API Contract - BK Parking Management System (MVP)
 
-Tài liệu API chính thức (đã đồng bộ với code thực tế trên nhánh `develop` sau PR #41).
+Tài liệu API chính thức cho các endpoint đang có trong backend.
 Dùng cho Frontend (**TV3 - User Portal**, **TV4 - Admin Portal**, **TV5 - Staff & Public View**) tích hợp trực tiếp với Backend Spring Boot.
 
 - **Base URL:** `http://localhost:8080/api/v1`
 - **Swagger UI (test trực tiếp):** `http://localhost:8080/swagger-ui.html`
 - **Postman Collection:** [BK_Parking_MVP.postman_collection.json](BK_Parking_MVP.postman_collection.json)
 - **TypeScript Types dùng chung (copy vào FE):** [api-types.ts](api-types.ts)
+- **Chi tiết API quản lý phương tiện của TV3:** [TV3_VEHICLE_APIS.md](TV3_VEHICLE_APIS.md)
 
 ---
 
@@ -50,6 +51,11 @@ Khi có lỗi, `success` là `false`, `data` là `null`, `code` là mã lỗi ng
 | `400` | `NO_ACTIVE_SESSION` | Xe không có phiên đang mở trong bãi để check-out |
 | `409` | `PARKING_LOT_FULL` | Bãi xe đã đầy hoặc không ở trạng thái `OPEN` |
 | `400` | `CAPACITY_BELOW_OCCUPIED` | Admin nhập sức chứa mới nhỏ hơn số xe hiện đang đỗ |
+| `403` | `VEHICLE_TYPE_NOT_ALLOWED` | Tài khoản không đủ điều kiện đăng ký ô tô |
+| `409` | `VEHICLE_HAS_ACTIVE_SESSION` | Không thể hủy phương tiện đang ở trong bãi |
+| `400` | `INVALID_VEHICLE_DOCUMENT` | Thiếu ảnh, sai loại ảnh hoặc ảnh không thuộc tài khoản |
+| `413` | `DOCUMENT_TOO_LARGE` | Ảnh vượt quá 5 MB |
+| `415` | `UNSUPPORTED_DOCUMENT_TYPE` | Ảnh không phải JPG hoặc PNG hợp lệ |
 
 ---
 
@@ -68,7 +74,11 @@ Khi có lỗi, `success` là `false`, `data` là `null`, `code` là mã lỗi ng
 | Màn hình | Method & Endpoint | Auth | Ghi chú |
 | :--- | :--- | :---: | :--- |
 | Tổng quan / Quản lý xe | `GET /vehicles/my` | `USER` | Trả về `UserVehicleDto[]` |
-| Đăng ký phương tiện mới | `POST /vehicles` | `USER` | Trạng thái ban đầu `PENDING` |
+| Quyền đăng ký & hạn mức | `GET /vehicles/eligibility` | `USER` | Trả về số xe đang dùng hạn mức và loại xe được phép |
+| Tải ảnh hồ sơ | `POST /vehicles/documents` | `USER` | Multipart; JPG/PNG, tối đa 5 MB mỗi ảnh |
+| Xem ảnh hồ sơ | `GET /vehicles/documents/{id}` | `USER` / `ADMIN` | Chỉ chủ sở hữu hoặc Admin; trả binary image |
+| Đăng ký phương tiện mới | `POST /vehicles` | `USER` | Trạng thái ban đầu `PENDING`; tham chiếu ảnh bằng ID upload |
+| Hủy đăng ký phương tiện | `DELETE /vehicles/{id}` | `USER` | Chuyển trạng thái sang `CANCELED`; từ chối nếu xe đang trong bãi |
 | Mở mã QR của xe | `GET /vehicles/{id}/qr` | `USER` | Chỉ mở được khi xe `APPROVED` |
 | Gói đỗ xe | `GET /packages` | `USER` | Danh sách gói mẫu + gói đang sử dụng của user |
 | Lịch sử hoạt động (tab Ra/Vào) | `GET /sessions/my-history?vehicleId=` | `USER` | `vehicleId` không bắt buộc |
@@ -80,7 +90,7 @@ Khi có lỗi, `success` là `false`, `data` là `null`, `code` là mã lỗi ng
 | Danh sách bãi đỗ | `GET /admin/parking-lots` | `ADMIN` | Cấu hình và số xe đang đỗ hiện tại |
 | Chi tiết bãi đỗ | `GET /admin/parking-lots/{id}` | `ADMIN` | Xem chi tiết 1 bãi |
 | Sửa sức chứa / trạng thái bãi | `PUT /admin/parking-lots/{id}` | `ADMIN` | Kiểm tra `capacity >= occupiedCount` |
-| Hàng chờ & DS phương tiện | `GET /admin/vehicles?status=&keyword=` | `ADMIN` | `status`: `PENDING`, `APPROVED`, `REJECTED` |
+| Hàng chờ & DS phương tiện | `GET /admin/vehicles?status=&keyword=` | `ADMIN` | `status`: `PENDING`, `APPROVED`, `REJECTED`, `CANCELED` |
 | Chi tiết hồ sơ xe | `GET /admin/vehicles/{id}` | `ADMIN` | Trả về `AdminVehicleDto` (có `registrationDocUrl` và audit) |
 | Duyệt xe | `PATCH /admin/vehicles/{id}/approve` | `ADMIN` | Đổi sang `APPROVED` và tự sinh `qrToken` |
 | Từ chối xe | `PATCH /admin/vehicles/{id}/reject` | `ADMIN` | Body bắt buộc `{ "reason": "..." }` |
@@ -213,9 +223,14 @@ Request:
   "brand": "Honda",
   "model": "Lead 125",
   "color": "Bạc",
-  "registrationDocUrl": "https://demo.bkparking.edu.vn/docs/cavet-77788.jpg"
+  "registrationDocFrontId": 501,
+  "registrationDocBackId": 502,
+  "vehiclePhotoId": 503,
+  "ownerRelationship": "SELF"
 }
 ```
+TV3 tải hai mặt giấy đăng ký bắt buộc qua `POST /vehicles/documents` trước khi gửi đăng ký. Backend vẫn nhận `registrationDocUrl` cũ để tương thích với client hiện tại. `vehicleType` hỗ trợ `MOTORBIKE`, `ELECTRIC_BIKE`, `BICYCLE`, `CAR`; `CAR` chỉ dành cho tài khoản có mã cán bộ bắt đầu bằng `CB`. `ownerRelationship` nhận `SELF` hoặc `RELATIVE`.
+
 Response `200` (`UserVehicleDto`):
 ```json
 {
@@ -229,6 +244,10 @@ Response `200` (`UserVehicleDto`):
     "brand": "Honda",
     "model": "Lead 125",
     "color": "Bạc",
+    "registrationDocUrl": "/api/v1/vehicles/documents/501",
+    "registrationDocBackUrl": "/api/v1/vehicles/documents/502",
+    "vehiclePhotoUrl": "/api/v1/vehicles/documents/503",
+    "ownerRelationship": "SELF",
     "status": "PENDING",
     "rejectionReason": null,
     "qrToken": null,
@@ -239,6 +258,41 @@ Response `200` (`UserVehicleDto`):
   "timestamp": "2026-11-16T12:05:00Z"
 }
 ```
+
+#### `GET /api/v1/vehicles/eligibility` (`ROLE_USER`)
+Response `200`:
+```json
+{
+  "success": true,
+  "code": "SUCCESS",
+  "message": "Thao tác thành công",
+  "data": {
+    "maxVehicleLimit": 2,
+    "registeredVehicleCount": 1,
+    "pendingVehicleCount": 0,
+    "approvedVehicleCount": 1,
+    "canRegister": true,
+    "allowedVehicleTypes": ["MOTORBIKE", "ELECTRIC_BIKE", "BICYCLE"]
+  },
+  "timestamp": "2026-11-16T12:05:00Z"
+}
+```
+
+#### `POST /api/v1/vehicles/documents` (`ROLE_USER`)
+Gửi `multipart/form-data`, không tự đặt `Content-Type` ở frontend để trình duyệt thêm boundary:
+
+| Field | Giá trị |
+| :--- | :--- |
+| `purpose` | `REGISTRATION_FRONT`, `REGISTRATION_BACK` hoặc `VEHICLE_PHOTO` |
+| `file` | Một ảnh JPG hoặc PNG, tối đa 5 MB |
+
+Response `200` trả `VehicleDocumentUploadResponse`, gồm `id`, `url`, `purpose`, tên tệp, loại MIME và kích thước. Dùng `id` tương ứng trong `POST /vehicles`.
+
+#### `GET /api/v1/vehicles/documents/{id}` (`ROLE_USER` hoặc `ROLE_ADMIN`)
+Trả ảnh nhị phân. Frontend cần gửi JWT trong `Authorization` khi tải ảnh bằng `fetch`, sau đó tạo object URL để hiển thị. Người dùng chỉ đọc được ảnh của mình; Admin đọc được ảnh phục vụ duyệt hồ sơ.
+
+#### `DELETE /api/v1/vehicles/{id}` (`ROLE_USER`)
+Hủy đăng ký theo kiểu lưu trạng thái: API giữ hồ sơ và đổi status thành `CANCELED`, đồng thời thu hồi `qrToken`. Xe đang có parking session `ACTIVE` trả `409 VEHICLE_HAS_ACTIVE_SESSION`. Xe `CANCELED` có thể gọi lại an toàn.
 
 #### `GET /api/v1/vehicles/{id}/qr` (`ROLE_USER`)
 Response `200`:
