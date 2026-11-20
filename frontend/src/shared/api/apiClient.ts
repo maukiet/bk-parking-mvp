@@ -7,12 +7,12 @@ const API_BASE_URL = (
 ).replace(/\/$/, '')
 
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
+  readonly status: number
+
+  constructor(message: string, status: number) {
     super(message)
     this.name = 'ApiError'
+    this.status = status
   }
 }
 
@@ -21,7 +21,12 @@ export async function apiRequest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(options.headers)
-  if (options.body && !headers.has('Content-Type')) {
+  if (
+    options.body &&
+    !(options.body instanceof FormData) &&
+    !(options.body instanceof Blob) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json')
   }
 
@@ -58,11 +63,44 @@ export function apiGet<T>(path: string) {
   return apiRequest<T>(path)
 }
 
+export async function apiGetBlob(path: string, signal?: AbortSignal) {
+  const headers = new Headers()
+  const token = localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)
+    ?? localStorage.getItem('accessToken')
+    ?? localStorage.getItem('bk_token')
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const apiPath = path.startsWith('/api/v1/') ? path.slice('/api/v1'.length) : path
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${apiPath}`, { headers, signal })
+  } catch {
+    throw new ApiError('Không thể kết nối máy chủ. Vui lòng thử lại.', 0)
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => undefined) as ApiResponse<unknown> | undefined
+    throw new ApiError(payload?.message || `Yêu cầu thất bại (${response.status}).`, response.status)
+  }
+  return response.blob()
+}
+
 export function apiPost<T>(path: string, body: unknown) {
   return apiRequest<T>(path, {
     method: 'POST',
     body: JSON.stringify(body),
   })
+}
+
+export function apiUpload<T>(path: string, body: FormData) {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    body,
+  })
+}
+
+export function apiDelete<T>(path: string) {
+  return apiRequest<T>(path, { method: 'DELETE' })
 }
 
 export function apiPut<T>(path: string, body: unknown) {

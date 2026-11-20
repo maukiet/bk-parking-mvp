@@ -9,7 +9,6 @@ public class AdminVehicleResponseDto extends UserVehicleResponseDto {
     private String ownerName;
     private String ownerCode;
     private String ownerEmail;
-    private String registrationDocUrl;
     private Long reviewerId;
     private String reviewerName;
     private String reviewedAt;
@@ -28,6 +27,10 @@ public class AdminVehicleResponseDto extends UserVehicleResponseDto {
         dto.setBrand(v.getBrand());
         dto.setModel(v.getModel());
         dto.setColor(v.getColor());
+        dto.setRegistrationDocUrl(v.getRegistrationDocUrl());
+        dto.setRegistrationDocBackUrl(v.getRegistrationDocBackUrl());
+        dto.setVehiclePhotoUrl(v.getVehiclePhotoUrl());
+        dto.setOwnerRelationship(v.getOwnerRelationship());
         dto.setStatus(v.getStatus());
         dto.setRejectionReason(v.getRejectionReason());
         dto.setQrToken(v.getQrToken());
@@ -42,8 +45,6 @@ public class AdminVehicleResponseDto extends UserVehicleResponseDto {
             dto.ownerCode = v.getUser().getCode();
             dto.ownerEmail = v.getUser().getEmail();
         }
-        dto.registrationDocUrl = v.getRegistrationDocUrl();
-
         if (v.getReviewedBy() != null) {
             dto.reviewerId = v.getReviewedBy().getId();
             dto.reviewerName = v.getReviewedBy().getFullName();
@@ -64,9 +65,6 @@ public class AdminVehicleResponseDto extends UserVehicleResponseDto {
 
     public String getOwnerEmail() { return ownerEmail; }
     public void setOwnerEmail(String ownerEmail) { this.ownerEmail = ownerEmail; }
-
-    public String getRegistrationDocUrl() { return registrationDocUrl; }
-    public void setRegistrationDocUrl(String registrationDocUrl) { this.registrationDocUrl = registrationDocUrl; }
 
     public Long getReviewerId() { return reviewerId; }
     public void setReviewerId(Long reviewerId) { this.reviewerId = reviewerId; }

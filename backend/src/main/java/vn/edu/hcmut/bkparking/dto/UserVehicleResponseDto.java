@@ -9,6 +9,10 @@ public class UserVehicleResponseDto {
     private String brand;
     private String model;
     private String color;
+    private String registrationDocUrl;
+    private String registrationDocBackUrl;
+    private String vehiclePhotoUrl;
+    private String ownerRelationship;
     private String status;
     private String rejectionReason;
     private String qrToken;
@@ -26,6 +30,10 @@ public class UserVehicleResponseDto {
         dto.brand = v.getBrand();
         dto.model = v.getModel();
         dto.color = v.getColor();
+        dto.registrationDocUrl = v.getRegistrationDocUrl();
+        dto.registrationDocBackUrl = v.getRegistrationDocBackUrl();
+        dto.vehiclePhotoUrl = v.getVehiclePhotoUrl();
+        dto.ownerRelationship = v.getOwnerRelationship();
         dto.status = v.getStatus();
         dto.rejectionReason = v.getRejectionReason();
         dto.qrToken = v.getQrToken();
@@ -53,6 +61,18 @@ public class UserVehicleResponseDto {
 
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
+
+    public String getRegistrationDocUrl() { return registrationDocUrl; }
+    public void setRegistrationDocUrl(String registrationDocUrl) { this.registrationDocUrl = registrationDocUrl; }
+
+    public String getRegistrationDocBackUrl() { return registrationDocBackUrl; }
+    public void setRegistrationDocBackUrl(String registrationDocBackUrl) { this.registrationDocBackUrl = registrationDocBackUrl; }
+
+    public String getVehiclePhotoUrl() { return vehiclePhotoUrl; }
+    public void setVehiclePhotoUrl(String vehiclePhotoUrl) { this.vehiclePhotoUrl = vehiclePhotoUrl; }
+
+    public String getOwnerRelationship() { return ownerRelationship; }
+    public void setOwnerRelationship(String ownerRelationship) { this.ownerRelationship = ownerRelationship; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

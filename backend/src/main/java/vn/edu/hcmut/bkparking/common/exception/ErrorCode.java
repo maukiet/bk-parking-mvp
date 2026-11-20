@@ -16,7 +16,13 @@ public enum ErrorCode {
     SESSION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "Phương tiện này hiện đang ở trong bãi, không thể tạo lượt VÀO trùng"),
     NO_ACTIVE_SESSION(HttpStatus.BAD_REQUEST, "Phương tiện hiện không có lượt gửi đang mở trong bãi để cho RA"),
     PARKING_LOT_FULL(HttpStatus.CONFLICT, "Bãi đỗ xe đã hết chỗ trống hoặc đang đóng cửa"),
-    CAPACITY_BELOW_OCCUPIED(HttpStatus.BAD_REQUEST, "Sức chứa mới không được nhỏ hơn số xe hiện đang đỗ trong bãi");
+    CAPACITY_BELOW_OCCUPIED(HttpStatus.BAD_REQUEST, "Sức chứa mới không được nhỏ hơn số xe hiện đang đỗ trong bãi"),
+    VEHICLE_HAS_ACTIVE_SESSION(HttpStatus.CONFLICT, "Xe đang ở trong bãi nên chưa thể hủy đăng ký"),
+    VEHICLE_TYPE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "Tài khoản hiện tại không đủ điều kiện đăng ký loại phương tiện này"),
+    INVALID_VEHICLE_DOCUMENT(HttpStatus.BAD_REQUEST, "Tệp hoặc hồ sơ phương tiện không hợp lệ"),
+    DOCUMENT_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "Ảnh tải lên không được vượt quá 5 MB"),
+    UNSUPPORTED_DOCUMENT_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Chỉ hỗ trợ ảnh JPG hoặc PNG"),
+    DOCUMENT_STORAGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể lưu tệp phương tiện");
 
     private final HttpStatus status;
     private final String defaultMessage;

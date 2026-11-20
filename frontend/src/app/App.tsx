@@ -13,6 +13,8 @@ import {
   userPortalUtilityPages,
 } from '../features/user-portal/navigation'
 import { DashboardPage } from '../features/user-portal/pages/DashboardPage'
+import { UserVehiclesPage } from '../features/user-portal/pages/UserVehiclesPage'
+import { UserVehicleRegistrationPage } from '../features/user-portal/pages/UserVehicleRegistrationPage'
 import { UserPortalPage } from '../features/user-portal/pages/UserPortalPage'
 import { AuthProvider } from '../shared/auth/AuthContext'
 
@@ -49,6 +51,8 @@ export function App() {
               element={
                 item.path === 'overview' ? (
                   <DashboardPage />
+                ) : item.path === 'vehicles' ? (
+                  <UserVehiclesPage />
                 ) : (
                   <UserPortalPage
                     title={item.title}
@@ -58,6 +62,7 @@ export function App() {
               }
             />
           ))}
+          <Route path="vehicles/new" element={<UserVehicleRegistrationPage />} />
           {userPortalUtilityPages.map((item) => (
             <Route
               key={item.path}

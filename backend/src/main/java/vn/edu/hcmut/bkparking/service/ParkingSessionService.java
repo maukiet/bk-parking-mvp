@@ -58,7 +58,7 @@ public class ParkingSessionService {
 
         // 2. Kiểm tra gói đỗ xe còn hiệu lực
         List<UserPackage> activePackages = userPackageRepository.findByUserIdAndStatus(vehicle.getUser().getId(), "ACTIVE");
-        if (activePackages.isEmpty()) {
+        if (!VehicleEligibilityPolicy.isEligibleForParking(vehicle, activePackages)) {
             throw new BusinessException(ErrorCode.PACKAGE_INELIGIBLE,
                     "Chủ xe " + vehicle.getUser().getFullName() + " chưa có gói đỗ xe còn hiệu lực");
         }
@@ -77,6 +77,15 @@ public class ParkingSessionService {
 
         if (!"OPEN".equalsIgnoreCase(lot.getStatus())) {
             throw new BusinessException(ErrorCode.PARKING_LOT_FULL, "Bãi đỗ " + lot.getName() + " hiện không mở cửa (" + lot.getStatus() + ")");
+        }
+
+        boolean lotAcceptsVehicleType = lot.getAllowedVehicleTypes() != null
+                && java.util.Arrays.stream(lot.getAllowedVehicleTypes().split(","))
+                        .map(String::trim)
+                        .anyMatch(type -> type.equalsIgnoreCase(vehicle.getVehicleType()));
+        if (!lotAcceptsVehicleType) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "Bãi " + lot.getName() + " không nhận loại phương tiện " + vehicle.getVehicleType());
         }
 
         // 5. Kiểm tra sức chứa bãi xe
@@ -143,7 +152,7 @@ public class ParkingSessionService {
         return vehicles.stream().map(v -> {
             Optional<ParkingSession> activeSession = parkingSessionRepository.findByVehicleIdAndStatus(v.getId(), "ACTIVE");
             List<UserPackage> activePackages = userPackageRepository.findByUserIdAndStatus(v.getUser().getId(), "ACTIVE");
-            boolean hasPackage = !activePackages.isEmpty();
+            boolean hasPackage = VehicleEligibilityPolicy.isEligibleForParking(v, activePackages);
             boolean isParked = activeSession.isPresent();
             ParkingSessionResponseDto sessionDto = activeSession.map(ParkingSessionResponseDto::fromEntity).orElse(null);
             return StaffVehicleSearchResultDto.from(v, hasPackage, isParked, sessionDto);

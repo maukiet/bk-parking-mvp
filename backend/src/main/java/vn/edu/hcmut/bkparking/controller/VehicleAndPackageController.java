@@ -3,18 +3,32 @@ package vn.edu.hcmut.bkparking.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import vn.edu.hcmut.bkparking.common.dto.ApiResponse;
+import vn.edu.hcmut.bkparking.common.exception.BusinessException;
+import vn.edu.hcmut.bkparking.common.exception.ErrorCode;
 import vn.edu.hcmut.bkparking.dto.*;
+import vn.edu.hcmut.bkparking.entity.VehicleDocument;
 import vn.edu.hcmut.bkparking.entity.UserPackage;
 import vn.edu.hcmut.bkparking.repository.ParkingPackageRepository;
 import vn.edu.hcmut.bkparking.repository.UserPackageRepository;
 import vn.edu.hcmut.bkparking.security.UserPrincipal;
+import vn.edu.hcmut.bkparking.service.VehicleDocumentService;
 import vn.edu.hcmut.bkparking.service.VehicleService;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,14 +38,17 @@ import java.util.stream.Collectors;
 public class VehicleAndPackageController {
 
     private final VehicleService vehicleService;
+    private final VehicleDocumentService vehicleDocumentService;
     private final ParkingPackageRepository parkingPackageRepository;
     private final UserPackageRepository userPackageRepository;
 
     public VehicleAndPackageController(
             VehicleService vehicleService,
+            VehicleDocumentService vehicleDocumentService,
             ParkingPackageRepository parkingPackageRepository,
             UserPackageRepository userPackageRepository) {
         this.vehicleService = vehicleService;
+        this.vehicleDocumentService = vehicleDocumentService;
         this.parkingPackageRepository = parkingPackageRepository;
         this.userPackageRepository = userPackageRepository;
     }
@@ -80,19 +97,93 @@ public class VehicleAndPackageController {
     // =========================================================================
 
     @GetMapping("/api/v1/vehicles/my")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
     @Operation(summary = "[User] Xem danh sách phương tiện của tôi")
     public ApiResponse<List<UserVehicleResponseDto>> getMyVehicles(@AuthenticationPrincipal UserPrincipal principal) {
         List<UserVehicleResponseDto> list = vehicleService.getMyVehicles(principal.getId());
         return ApiResponse.ok(list);
     }
 
+    @GetMapping("/api/v1/vehicles/eligibility")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    @Operation(summary = "[User] Xem hạn mức đăng ký và loại phương tiện được phép")
+    public ApiResponse<VehicleEligibilityResponseDto> getVehicleEligibility(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(vehicleService.getEligibility(principal.getId()));
+    }
+
+    @PostMapping(value = "/api/v1/vehicles/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    @Operation(summary = "[User] Tải ảnh hồ sơ phương tiện lên")
+    public ApiResponse<VehicleDocumentUploadResponseDto> uploadVehicleDocument(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam("purpose") String purpose,
+            @RequestParam("file") MultipartFile file) {
+        VehicleDocumentType documentType;
+        try {
+            documentType = VehicleDocumentType.valueOf(purpose.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new BusinessException(ErrorCode.INVALID_VEHICLE_DOCUMENT,
+                    "purpose phải là REGISTRATION_FRONT, REGISTRATION_BACK hoặc VEHICLE_PHOTO");
+        }
+        return ApiResponse.ok(vehicleDocumentService.upload(principal.getId(), documentType, file));
+    }
+
+    @GetMapping("/api/v1/vehicles/documents/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_USER', 'ROLE_ADMIN')")
+    @Operation(summary = "[User/Admin] Xem ảnh hồ sơ nếu là chủ sở hữu hoặc quản trị viên")
+    public ResponseEntity<Resource> downloadVehicleDocument(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        VehicleDocumentService.VehicleDocumentDownload download = vehicleDocumentService.loadForUser(
+                principal.getId(), principal.getRoleCode(), id);
+        VehicleDocument document = download.document();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(document.getContentType()))
+                .contentLength(document.getSizeBytes())
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline()
+                                .filename(document.getOriginalFileName(), StandardCharsets.UTF_8)
+                                .build()
+                                .toString())
+                .body(download.resource());
+    }
+
     @PostMapping("/api/v1/vehicles")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
     @Operation(summary = "[User] Đăng ký phương tiện mới", description = "Trạng thái ban đầu là PENDING. Kiểm tra trùng biển số và giới hạn tối đa 2 xe hợp lệ/người dùng.")
     public ApiResponse<UserVehicleResponseDto> registerVehicle(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CreateVehicleRequest request) {
+        boolean hasAnyRegistrationSide = request.getRegistrationDocFrontId() != null
+                || request.getRegistrationDocBackId() != null;
+        if (hasAnyRegistrationSide
+                && (request.getRegistrationDocFrontId() == null || request.getRegistrationDocBackId() == null)) {
+            throw new BusinessException(ErrorCode.INVALID_VEHICLE_DOCUMENT,
+                    "Vui lòng tải cả ảnh mặt trước và mặt sau của giấy đăng ký xe");
+        }
+        if (request.getRegistrationDocFrontId() != null) {
+            request.setRegistrationDocUrl(vehicleDocumentService.resolveOwnedDocumentUrl(
+                    principal.getId(), request.getRegistrationDocFrontId(), VehicleDocumentType.REGISTRATION_FRONT));
+            request.setRegistrationDocBackUrl(vehicleDocumentService.resolveOwnedDocumentUrl(
+                    principal.getId(), request.getRegistrationDocBackId(), VehicleDocumentType.REGISTRATION_BACK));
+        }
+        if (request.getVehiclePhotoId() != null) {
+            request.setVehiclePhotoUrl(vehicleDocumentService.resolveOwnedDocumentUrl(
+                    principal.getId(), request.getVehiclePhotoId(), VehicleDocumentType.VEHICLE_PHOTO));
+        }
         UserVehicleResponseDto saved = vehicleService.registerVehicle(principal.getId(), request);
         return ApiResponse.ok("Gửi yêu cầu đăng ký phương tiện thành công (Trạng thái: Chờ duyệt)", saved);
+    }
+
+    @DeleteMapping("/api/v1/vehicles/{id}")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    @Operation(summary = "[User] Hủy đăng ký phương tiện của tôi")
+    public ApiResponse<UserVehicleResponseDto> cancelVehicle(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        return ApiResponse.ok("Đã hủy đăng ký phương tiện", vehicleService.cancelVehicle(principal.getId(), id));
     }
 
     @GetMapping("/api/v1/vehicles/{id}/qr")
