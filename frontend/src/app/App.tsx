@@ -15,6 +15,7 @@ import {
 import { DashboardPage } from '../features/user-portal/pages/DashboardPage'
 import { UserVehiclesPage } from '../features/user-portal/pages/UserVehiclesPage'
 import { UserVehicleRegistrationPage } from '../features/user-portal/pages/UserVehicleRegistrationPage'
+import { UserReservationsPage } from '../features/user-portal/pages/UserReservationsPage'
 import { UserPortalPage } from '../features/user-portal/pages/UserPortalPage'
 import { AuthProvider } from '../shared/auth/AuthContext'
 
@@ -53,6 +54,8 @@ export function App() {
                   <DashboardPage />
                 ) : item.path === 'vehicles' ? (
                   <UserVehiclesPage />
+                ) : item.path === 'reservations' ? (
+                  <UserReservationsPage />
                 ) : (
                   <UserPortalPage
                     title={item.title}
