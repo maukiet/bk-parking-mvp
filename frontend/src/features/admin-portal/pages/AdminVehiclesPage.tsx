@@ -8,6 +8,7 @@ import { getAdminVehicle, getAdminVehicles, reviewAdminVehicle } from '../vehicl
 
 const statuses: Record<VehicleStatus, string> = {
   PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Đã từ chối', LOCKED: 'Đã khóa',
+  CANCELED: 'Đã hủy',
 }
 const tabs = [
   ['pending', 'Chờ duyệt'], ['vehicles', 'Phương tiện'],
