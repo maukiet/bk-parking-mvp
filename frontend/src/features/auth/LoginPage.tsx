@@ -7,6 +7,12 @@ const parkingSpaces = [true, false, true, true, false, true, false, true, true, 
 
 export type LoginDestinations = Partial<Record<PortalTarget, string>>
 
+const demoAccounts = [
+  { username: 'staff.gate', name: 'Nguyễn Văn Cổng', role: 'Bảo vệ cổng (Staff)', portal: 'STAFF' },
+  { username: 'sv.nguyen', name: 'Nguyễn Văn An', role: 'Sinh viên (User)', portal: 'USER' },
+  { username: 'admin', name: 'Quản trị viên', role: 'Ban quản trị (Admin)', portal: 'ADMIN' },
+]
+
 function destination(next: string | null, home: string) {
   if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) return home
   const target = new URL(next, window.location.origin)
@@ -20,41 +26,57 @@ function destination(next: string | null, home: string) {
 export function LoginPage({ destinations, publicPath }: { destinations: LoginDestinations; publicPath?: string }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
 
-  async function signIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function executeLogin(userToLogin: string, passToLogin: string) {
     if (pending) return
-    const data = new FormData(event.currentTarget)
     setPending(true)
     setError('')
     try {
       const result = await login({
-        username: String(data.get('username') ?? '').trim(),
-        password: String(data.get('password') ?? ''),
+        username: userToLogin.trim(),
+        password: passToLogin,
       })
       const home = destinations[result.portalTarget]
       if (!home) throw new Error('Cổng dành cho tài khoản này chưa được tích hợp trong phiên bản hiện tại.')
 
       saveSession(result)
       navigate(destination(params.get('next'), home), { replace: true })
-    } catch (error) {
-      setError(error instanceof TypeError
+    } catch (err) {
+      setError(err instanceof TypeError
         ? 'Không kết nối được với máy chủ. Vui lòng thử lại.'
-        : error instanceof Error ? error.message : 'Không đăng nhập được. Vui lòng thử lại.')
+        : err instanceof Error ? err.message : 'Không đăng nhập được. Vui lòng thử lại.')
     } finally {
       setPending(false)
     }
+  }
+
+  async function signIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await executeLogin(username, password)
   }
 
   const field = 'mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 focus-visible:outline-2 focus-visible:outline-lime-600 disabled:opacity-60'
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-slate-950">
-      <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-5 lg:px-8">
-        <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-black font-black text-lime-400">P</span>
-        <span className="font-bold">BK Parking</span>
+      <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-black font-black text-lime-400">P</span>
+          <span className="font-bold">BK Parking</span>
+        </div>
+        {publicPath && (
+          <Link
+            to={publicPath}
+            className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            Xem Kiosk công khai
+          </Link>
+        )}
       </header>
       <main className="grid min-h-[calc(100dvh-4rem)] lg:grid-cols-[58fr_42fr]">
         <section className="flex flex-col justify-between bg-black px-6 py-8 text-white sm:px-10 lg:p-14">
@@ -93,20 +115,66 @@ export function LoginPage({ destinations, publicPath }: { destinations: LoginDes
               <p className="mt-1 text-sm text-slate-600">Sử dụng tài khoản được cấp cho hệ thống BK Parking.</p>
             </div>
             {params.get('expired') === '1' && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.</p>}
-            {params.get('forbidden') === '1' && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Tài khoản hiện tại không có quyền quản trị. Hãy dùng tài khoản Admin để tiếp tục.</p>}
+            {params.get('forbidden') === '1' && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Tài khoản hiện tại không có quyền truy cập cổng này.</p>}
             <form onSubmit={signIn} className="space-y-4">
               <label className="block text-sm font-medium">Tên đăng nhập
-                <input name="username" autoComplete="username" required disabled={pending} className={field} />
+                <input
+                  name="username"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={pending}
+                  className={field}
+                />
               </label>
               <label className="block text-sm font-medium">Mật khẩu
-                <input name="password" type="password" autoComplete="current-password" required disabled={pending} className={field} />
+                <input
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={pending}
+                  className={field}
+                />
               </label>
               {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
               <button type="submit" disabled={pending} className="w-full rounded-full bg-black px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60">
                 {pending ? 'Đang đăng nhập…' : 'Đăng nhập'}
               </button>
             </form>
-            {publicPath && <Link to={publicPath} className="block border-t border-slate-100 pt-4 text-center text-sm font-semibold underline">Xem tình trạng chỗ trống</Link>}
+
+            {/* Demo 1 chạm */}
+            <div className="border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold text-slate-500 mb-2">Tài khoản Demo 1 chạm (Mật khẩu: 123456):</p>
+              <div className="flex flex-col gap-1.5">
+                {demoAccounts.map((acc) => (
+                  <button
+                    key={acc.username}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setUsername(acc.username)
+                      setPassword('123456')
+                      executeLogin(acc.username, '123456')
+                    }}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-left text-xs transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-900">{acc.role}</span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{acc.username} · {acc.name}</p>
+                    </div>
+                    <span className="rounded-full bg-white px-2 py-0.5 font-bold text-slate-700 border border-slate-200 text-[10px]">
+                      {acc.portal}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {publicPath && <Link to={publicPath} className="block border-t border-slate-100 pt-3 text-center text-sm font-semibold underline">Xem tình trạng chỗ trống</Link>}
             <aside className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
               <h2 className="font-bold">Ai dùng được hệ thống?</h2>
               <ul className="mt-3 space-y-2 text-slate-600">

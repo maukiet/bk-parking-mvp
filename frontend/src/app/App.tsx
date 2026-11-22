@@ -18,10 +18,13 @@ import { UserVehicleRegistrationPage } from '../features/user-portal/pages/UserV
 import { UserReservationsPage } from '../features/user-portal/pages/UserReservationsPage'
 import { UserPortalPage } from '../features/user-portal/pages/UserPortalPage'
 import { AuthProvider } from '../shared/auth/AuthContext'
+import { StaffShell } from '../features/staff/checkpoint/components/StaffShell'
+import { PublicView } from '../features/public/components/PublicView'
 
 const loginDestinations: LoginDestinations = {
   ADMIN_PORTAL: '/admin/overview',
   USER_PORTAL: '/user/overview',
+  STAFF_PORTAL: '/staff',
 }
 
 function RequireAdminSession() {
@@ -33,16 +36,37 @@ function RequireAdminSession() {
   return <Outlet />
 }
 
+function RequireStaffSession() {
+  const { pathname, search, hash } = useLocation()
+  const next = encodeURIComponent(pathname + search + hash)
+  if (!getAccessToken()) return <Navigate to={`/login?next=${next}`} replace />
+  const role = getStoredRole()
+  if (role && role !== 'ROLE_STAFF' && role !== 'ROLE_ADMIN') {
+    return <Navigate to={`/login?forbidden=1&next=${next}`} replace />
+  }
+  return <Outlet />
+}
+
 function AdminLoginRedirect() {
   const { search } = useLocation()
   return <Navigate to={`/login${search || '?next=/admin/overview'}`} replace />
+}
+
+function RootRedirect() {
+  const token = getAccessToken()
+  if (!token) return <Navigate to="/user/overview" replace />
+  const role = getStoredRole()
+  if (role === 'ROLE_STAFF') return <Navigate to="/staff" replace />
+  if (role === 'ROLE_ADMIN') return <Navigate to="/admin/overview" replace />
+  return <Navigate to="/user/overview" replace />
 }
 
 export function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<Navigate to="/user/overview" replace />} />
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/public" element={<PublicView />} />
         <Route path="/user" element={<UserPortalLayout />}>
           <Route index element={<Navigate to="overview" replace />} />
           {userPortalNavigation.map((item) => (
@@ -79,8 +103,12 @@ export function App() {
             />
           ))}
         </Route>
-        <Route path="/login" element={<LoginPage destinations={loginDestinations} />} />
+        <Route path="/login" element={<LoginPage destinations={loginDestinations} publicPath="/public" />} />
         <Route path="/admin/login" element={<AdminLoginRedirect />} />
+        <Route element={<RequireStaffSession />}>
+          <Route path="/staff" element={<StaffShell />} />
+          <Route path="/staff/*" element={<StaffShell />} />
+        </Route>
         <Route element={<RequireAdminSession />}>
           <Route path="/admin" element={<AdminPortalLayout />}>
             <Route index element={<Navigate to="overview" replace />} />
