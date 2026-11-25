@@ -4,9 +4,29 @@ import { userPortalNavigation } from '../navigation'
 import { Avatar } from '../../../shared/components/Avatar'
 import { Icon } from '../../../shared/components/Icon'
 import { useAuth } from '../../../shared/auth/AuthContext'
+import type { UserInfo } from '../../../types/api'
+import { NotificationBell } from '../notifications/NotificationBell'
+import { NotificationCenterProvider } from '../notifications/NotificationCenter'
 
 export function UserPortalLayout() {
   const { user, isLoading: isAuthLoading, logout } = useAuth()
+
+  return (
+    <NotificationCenterProvider key={user?.id ?? 'guest'} userId={user?.id ?? null}>
+      <UserPortalLayoutContent user={user} isAuthLoading={isAuthLoading} logout={logout} />
+    </NotificationCenterProvider>
+  )
+}
+
+function UserPortalLayoutContent({
+  user,
+  isAuthLoading,
+  logout,
+}: {
+  user: UserInfo | null
+  isAuthLoading: boolean
+  logout: () => void
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
@@ -109,14 +129,7 @@ export function UserPortalLayout() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-3 sm:gap-4">
-            <Link
-              aria-label="Thông báo"
-              className="relative grid size-9 place-items-center rounded-full text-slate-600 hover:bg-slate-100"
-              to="/user/notifications"
-            >
-              <Icon name="bell" className="size-[19px]" />
-              <span aria-label="Có thông báo mới" className="absolute right-[7px] top-[6px] size-1.5 rounded-full bg-red-500" />
-            </Link>
+            <NotificationBell />
 
             <div className="relative">
               <button
