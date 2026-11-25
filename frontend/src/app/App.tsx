@@ -16,6 +16,9 @@ import { DashboardPage } from '../features/user-portal/pages/DashboardPage'
 import { UserVehiclesPage } from '../features/user-portal/pages/UserVehiclesPage'
 import { UserVehicleRegistrationPage } from '../features/user-portal/pages/UserVehicleRegistrationPage'
 import { UserReservationsPage } from '../features/user-portal/pages/UserReservationsPage'
+import { UserPackagesPage } from '../features/user-portal/pages/UserPackagesPage'
+import { UserActivityPage } from '../features/user-portal/pages/UserActivityPage'
+import { UserNotificationsPage } from '../features/user-portal/pages/UserNotificationsPage'
 import { UserPortalPage } from '../features/user-portal/pages/UserPortalPage'
 import { AuthProvider } from '../shared/auth/AuthContext'
 import { StaffShell } from '../features/staff/checkpoint/components/StaffShell'
@@ -80,6 +83,10 @@ export function App() {
                   <UserVehiclesPage />
                 ) : item.path === 'reservations' ? (
                   <UserReservationsPage />
+                ) : item.path === 'packages' ? (
+                  <UserPackagesPage />
+                ) : item.path === 'activity' ? (
+                  <UserActivityPage />
                 ) : (
                   <UserPortalPage
                     title={item.title}
@@ -95,10 +102,14 @@ export function App() {
               key={item.path}
               path={item.path}
               element={
-                <UserPortalPage
-                  title={item.title}
-                  description={item.description}
-                />
+                item.path === 'notifications' ? (
+                  <UserNotificationsPage />
+                ) : (
+                  <UserPortalPage
+                    title={item.title}
+                    description={item.description}
+                  />
+                )
               }
             />
           ))}
