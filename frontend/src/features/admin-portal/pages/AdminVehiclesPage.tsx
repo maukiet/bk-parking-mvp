@@ -1,17 +1,30 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import type { AdminVehicleDto } from '../../../types/api'
 import { PageHeader } from '../../../shared/components/PageHeader'
-import { apiGetBlob } from '../../../shared/api/apiClient'
+import { apiGetBlob, apiRequest } from '../../../shared/api/apiClient'
 import { adminErrorMessage } from '../adminApi'
 import { AdminConfirmation } from '../AdminConfirmation'
+import { useAdminLotReference, useAdminSessionHistory } from '../adminOperationalData'
 import { AdminPagination } from '../AdminPagination'
+import { AdminPermissionsTab } from '../AdminPermissionsTab'
+import { AdminUsersTab } from '../AdminUsersTab'
+import {
+  INITIAL_PERMISSION_MATRIX,
+  INITIAL_ROLE_ASSIGNMENTS,
+  INITIAL_ROLE_AUDIT_LOGS,
+  INITIAL_SSO_USERS,
+  INITIAL_SYNC_LOGS,
+  mergeDirectoryUsers,
+  type DirectoryAccountItem,
+} from '../adminUsersRbacData'
 import { getAdminVehicle, getAdminVehicles, reviewAdminVehicle } from '../vehiclesApi'
 import { AdminStatusBadge } from '../AdminStatusBadge'
 import { formatAdminDateTime, vehicleStatuses as statuses, vehicleTypeLabel } from '../adminPresentation'
 
 const tabs = [
   ['pending', 'Chờ duyệt'], ['vehicles', 'Phương tiện'],
+  ['users', 'Người dùng'], ['permissions', 'Phân quyền'],
 ] as const
 
 const field = 'min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm'
@@ -22,7 +35,11 @@ export function AdminVehiclesPage() {
   const [params, setParams] = useSearchParams()
   const tab = tabs.find(([value]) => value === params.get('tab'))?.[0]
     ?? (params.get('status') === 'PENDING' ? 'pending' : 'vehicles')
-  const status = tab === 'pending' ? 'PENDING' : params.get('status') ?? ''
+  const status = tab === 'pending' ? 'PENDING' : tab === 'vehicles' ? (params.get('status') ?? '') : ''
+  const live = tab === 'pending' || tab === 'vehicles'
+  const lotReference = useAdminLotReference()
+  const sessionHistory = useAdminSessionHistory()
+  const [accounts, setAccounts] = useState<DirectoryAccountItem[]>([])
   const [keyword, setKeyword] = useState(() => params.get('keyword') ?? '')
   const [result, setResult] = useState<{ key: string; rows?: AdminVehicleDto[]; error?: string }>()
   const [attempt, setAttempt] = useState(0)
@@ -30,10 +47,26 @@ export function AdminVehiclesPage() {
   const [notice, setNotice] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const key = JSON.stringify([tab, status, attempt])
+  const [ssoUsers, setSsoUsers] = useState(INITIAL_SSO_USERS)
+  const [syncLogs, setSyncLogs] = useState(INITIAL_SYNC_LOGS)
+  const [assignments, setAssignments] = useState(INITIAL_ROLE_ASSIGNMENTS)
+  const [matrix, setMatrix] = useState(INITIAL_PERMISSION_MATRIX)
+  const [roleAuditLogs, setRoleAuditLogs] = useState(INITIAL_ROLE_AUDIT_LOGS)
+  const key = JSON.stringify([live ? tab : 'all', status, attempt])
   const current = result?.key === key ? result : undefined
 
   useEffect(() => {
+    const controller = new AbortController()
+    apiRequest<DirectoryAccountItem[]>('/auth/demo-accounts', { signal: controller.signal })
+      .then(data => {
+        if (!controller.signal.aborted && Array.isArray(data)) setAccounts(data)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'permissions') return
     const controller = new AbortController()
     getAdminVehicles({ status, keyword: '' }, controller.signal).then(rows => {
       if (!controller.signal.aborted) setResult({ key, rows })
@@ -41,10 +74,141 @@ export function AdminVehiclesPage() {
       if (!controller.signal.aborted) setResult({ key, error: adminErrorMessage(error) })
     })
     return () => controller.abort()
-  }, [key, status])
+  }, [key, status, tab])
+
+  const mergedUsers = useMemo(
+    () => mergeDirectoryUsers(ssoUsers, current?.rows ?? [], accounts),
+    [ssoUsers, current?.rows, accounts],
+  )
 
   function updateSearch(values: Record<string, string>) {
     setParams(Object.fromEntries(Object.entries(values).filter(([, value]) => value)))
+  }
+
+  function handleSyncNow() {
+    const nowLabel = formatAdminDateTime(new Date())
+    setSyncLogs(prev => [
+      {
+        id: `SYNC-${String(prev.length + 1).padStart(2, '0')}`,
+        syncedAt: nowLabel,
+        trigger: 'Thủ công (Quản trị viên)',
+        totalRecords: mergedUsers.length,
+        updatedRecords: 1,
+        status: 'Thành công',
+      },
+      ...prev,
+    ])
+  }
+
+  function handleToggleParkingLock(code: string, nextStatus: 'Hoạt động' | 'Bị khóa', reason: string) {
+    setSsoUsers(prev => {
+      const exists = prev.some(user => user.code.toLowerCase() === code.toLowerCase())
+      if (exists) {
+        return prev.map(user => (
+          user.code.toLowerCase() === code.toLowerCase()
+            ? {
+                ...user,
+                status: nextStatus,
+                lockReason: nextStatus === 'Bị khóa' ? reason : undefined,
+              }
+            : user
+        ))
+      }
+      const target = mergedUsers.find(user => user.code.toLowerCase() === code.toLowerCase())
+      if (!target) return prev
+      return [
+        ...prev,
+        {
+          ...target,
+          status: nextStatus,
+          lockReason: nextStatus === 'Bị khóa' ? reason : undefined,
+        },
+      ]
+    })
+  }
+
+  function handleAssignRole(payload: {
+    userCode: string
+    userName: string
+    role: typeof assignments[number]['role']
+    lotName: string
+    gateName: string
+    validUntil: string
+  }) {
+    const now = new Date()
+    const assignedDate = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(now)
+    const id = `RA-${String(assignments.length + 1).padStart(2, '0')}`
+    setAssignments(prev => [
+      {
+        id,
+        userCode: payload.userCode,
+        userName: payload.userName,
+        role: payload.role,
+        lotName: payload.lotName,
+        gateName: payload.gateName,
+        status: 'Đang hiệu lực',
+        assignedAt: assignedDate,
+        validUntil: payload.validUntil,
+      },
+      ...prev,
+    ])
+    setRoleAuditLogs(prev => [
+      {
+        id: `AUD-${String(prev.length + 1).padStart(2, '0')}`,
+        timestamp: formatAdminDateTime(now),
+        action: 'Gán vai trò',
+        target: `${payload.userName} (${payload.userCode})`,
+        detail: `${payload.role} · ${payload.lotName}${payload.gateName !== '—' ? ` (${payload.gateName})` : ''} · ${payload.validUntil}`,
+        actor: 'Quản trị CNTT',
+      },
+      ...prev,
+    ])
+  }
+
+  function handleRevokeRole(assignmentId: string, reason: string) {
+    const target = assignments.find(item => item.id === assignmentId)
+    if (!target) return
+    setAssignments(prev => prev.map(item => (
+      item.id === assignmentId ? { ...item, status: 'Đã thu hồi' } : item
+    )))
+    setRoleAuditLogs(prev => [
+      {
+        id: `AUD-${String(prev.length + 1).padStart(2, '0')}`,
+        timestamp: formatAdminDateTime(new Date()),
+        action: 'Thu hồi vai trò',
+        target: `${target.userName} (${target.userCode})`,
+        detail: `${target.role} · Lý do: ${reason}`,
+        actor: 'Quản trị CNTT',
+      },
+      ...prev,
+    ])
+  }
+
+  function handleToggleMatrixCell(permissionKey: string, role: typeof assignments[number]['role']) {
+    const targetRow = matrix.find(row => row.key === permissionKey)
+    if (!targetRow) return
+    const nextValue = !targetRow.roles[role]
+    setMatrix(prev => prev.map(row => (
+      row.key === permissionKey
+        ? { ...row, roles: { ...row.roles, [role]: nextValue } }
+        : row
+    )))
+    setRoleAuditLogs(prev => [
+      {
+        id: `AUD-${String(prev.length + 1).padStart(2, '0')}`,
+        timestamp: formatAdminDateTime(new Date()),
+        action: 'Cập nhật ma trận',
+        target: role,
+        detail: `${nextValue ? 'Bật' : 'Tắt'} quyền "${targetRow.label}"`,
+        actor: 'Quản trị CNTT',
+      },
+      ...prev,
+    ])
   }
 
   const normalizedKeyword = keyword.trim().toLocaleLowerCase('vi-VN')
@@ -60,7 +224,7 @@ export function AdminVehiclesPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Duyệt & Quản lý Phương tiện" description="Xem hồ sơ đăng ký và xử lý yêu cầu chờ duyệt." />
+      <PageHeader title="Duyệt & Quản lý Phương tiện" description="Xem hồ sơ đăng ký, quản lý người dùng từ SSO và phân quyền vận hành." />
       <nav aria-label="Quản lý phương tiện" className="flex flex-wrap gap-2">
         {tabs.map(([value, label]) => (
           <button key={value} type="button" aria-pressed={tab === value} className={tab === value ? primary : button} onClick={() => {
@@ -71,92 +235,117 @@ export function AdminVehiclesPage() {
         ))}
       </nav>
       {notice && <p role="status" className="rounded-xl bg-green-50 p-3 text-green-800">{notice}</p>}
-      <div className={`grid min-w-0 gap-2 ${tab === 'vehicles' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : ''}`}>
-        <input
-          type="search"
-          aria-label="Biển số, tên hoặc mã chủ xe"
-          placeholder="Tìm biển số, tên hoặc mã chủ xe"
-          className={field}
-          value={keyword}
-          onChange={event => {
-            setKeyword(event.target.value)
-            setPage(1)
-          }}
-        />
-        {tab === 'vehicles' && (
-          <select
-            aria-label="Trạng thái hồ sơ"
-            className={field}
-            value={status}
-            onChange={event => {
-              setPage(1)
-              updateSearch({ tab, status: event.target.value })
-            }}
-          >
-            <option value="">Mọi trạng thái</option>
-            {Object.entries(statuses).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-          </select>
-        )}
-      </div>
-      {!current && <p role="status">Đang tải hồ sơ…</p>}
-      {current?.error && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-4" role="alert">
-          <p>{current.error}</p><button type="button" className={button} onClick={() => setAttempt(value => value + 1)}>Thử lại</button>
-        </div>
-      )}
-      {current?.rows && (!filteredRows.length ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-          <h2 className="font-semibold">Không có hồ sơ phù hợp</h2>
-          {(keyword || (tab === 'vehicles' && status)) && (
-            <button
-              type="button"
-              className={`${button} mt-3`}
-              onClick={() => {
-                setKeyword('')
+      {live ? (
+        <>
+          <div className={`grid min-w-0 gap-2 ${tab === 'vehicles' ? 'sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : ''}`}>
+            <input
+              type="search"
+              aria-label="Biển số, tên hoặc mã chủ xe"
+              placeholder="Tìm biển số, tên hoặc mã chủ xe"
+              className={field}
+              value={keyword}
+              onChange={event => {
+                setKeyword(event.target.value)
                 setPage(1)
-                if (tab === 'vehicles') updateSearch({ tab })
               }}
-            >
-              Xóa bộ lọc
-            </button>
-          )}
-        </section>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600"><tr>
-                {['Biển số', 'Chủ xe', 'Phương tiện', 'Trạng thái', 'Thao tác'].map(label => <th key={label} scope="col" className="p-3">{label}</th>)}
-              </tr></thead>
-              <tbody>
-                {pagedRows.map(vehicle => (
-                  <tr key={vehicle.id} className="border-t border-slate-100">
-                    <th scope="row" className="p-3 font-semibold">{vehicle.licensePlate}</th>
-                    <td className="p-3">{vehicle.ownerName}<span className="block text-xs text-slate-500">{vehicle.ownerCode}</span></td>
-                    <td className="p-3">{[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || vehicleTypeLabel(vehicle.vehicleType)}</td>
-                    <td className="p-3"><AdminStatusBadge status={vehicle.status} /></td>
-                    <td className="p-3"><button type="button" className={button} aria-label={`Xem hồ sơ ${vehicle.licensePlate}`} onClick={() => {
-                      setNotice('')
-                      setSelected(vehicle.id)
-                    }}>Chi tiết</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            />
+            {tab === 'vehicles' && (
+              <select
+                aria-label="Trạng thái hồ sơ"
+                className={field}
+                value={status}
+                onChange={event => {
+                  setPage(1)
+                  updateSearch({ tab, status: event.target.value })
+                }}
+              >
+                <option value="">Mọi trạng thái</option>
+                {Object.entries(statuses).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </select>
+            )}
           </div>
-          <AdminPagination
-            page={currentPage}
-            pageSize={pageSize}
-            totalItems={filteredRows.length}
-            itemLabel="hồ sơ"
-            onPageChange={setPage}
-            onPageSizeChange={size => {
-              setPageSize(size)
-              setPage(1)
-            }}
-          />
-        </div>
-      ))}
+          {!current && <p role="status">Đang tải hồ sơ…</p>}
+          {current?.error && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-4" role="alert">
+              <p>{current.error}</p><button type="button" className={button} onClick={() => setAttempt(value => value + 1)}>Thử lại</button>
+            </div>
+          )}
+          {current?.rows && (!filteredRows.length ? (
+            <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+              <h2 className="font-semibold">Không có hồ sơ phù hợp</h2>
+              {(keyword || (tab === 'vehicles' && status)) && (
+                <button
+                  type="button"
+                  className={`${button} mt-3`}
+                  onClick={() => {
+                    setKeyword('')
+                    setPage(1)
+                    if (tab === 'vehicles') updateSearch({ tab })
+                  }}
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+            </section>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[620px] text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-600"><tr>
+                    {['Biển số', 'Chủ xe', 'Phương tiện', 'Trạng thái', 'Thao tác'].map(label => <th key={label} scope="col" className="p-3">{label}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {pagedRows.map(vehicle => (
+                      <tr key={vehicle.id} className="border-t border-slate-100">
+                        <th scope="row" className="p-3 font-semibold">{vehicle.licensePlate}</th>
+                        <td className="p-3">{vehicle.ownerName}<span className="block text-xs text-slate-500">{vehicle.ownerCode}</span></td>
+                        <td className="p-3">{[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || vehicleTypeLabel(vehicle.vehicleType)}</td>
+                        <td className="p-3"><AdminStatusBadge status={vehicle.status} /></td>
+                        <td className="p-3"><button type="button" className={button} aria-label={`Xem hồ sơ ${vehicle.licensePlate}`} onClick={() => {
+                          setNotice('')
+                          setSelected(vehicle.id)
+                        }}>Chi tiết</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <AdminPagination
+                page={currentPage}
+                pageSize={pageSize}
+                totalItems={filteredRows.length}
+                itemLabel="hồ sơ"
+                onPageChange={setPage}
+                onPageSizeChange={size => {
+                  setPageSize(size)
+                  setPage(1)
+                }}
+              />
+            </div>
+          ))}
+        </>
+      ) : tab === 'users' ? (
+        <AdminUsersTab
+          users={mergedUsers}
+          syncLogs={syncLogs}
+          vehicles={current?.rows ?? []}
+          sessions={sessionHistory.status === 'ready' ? sessionHistory.data : []}
+          vehiclesLoaded={Boolean(current?.rows)}
+          onSyncNow={handleSyncNow}
+          onToggleParkingLock={handleToggleParkingLock}
+        />
+      ) : (
+        <AdminPermissionsTab
+          ssoUsers={mergedUsers}
+          lots={lotReference.status === 'ready' ? lotReference.data : []}
+          assignments={assignments}
+          matrix={matrix}
+          auditLogs={roleAuditLogs}
+          onAssignRole={handleAssignRole}
+          onRevokeRole={handleRevokeRole}
+          onToggleMatrixCell={handleToggleMatrixCell}
+        />
+      )}
       {selected !== undefined && (
         <VehicleDrawer id={selected} onClose={() => setSelected(undefined)} onReviewed={vehicle => {
           setNotice(`${vehicle.licensePlate} · ${statuses[vehicle.status]}`)

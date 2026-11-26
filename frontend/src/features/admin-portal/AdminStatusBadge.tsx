@@ -1,9 +1,9 @@
 import type { ParkingLotStatus, VehicleStatus } from '../../types/api'
 import { vehicleStatuses, parkingStatuses } from './adminPresentation'
 
-const success = new Set(['APPROVED', 'OPEN', 'Đã xác nhận', 'Khớp', 'Đã ghi nhận'])
+const success = new Set(['APPROVED', 'OPEN', 'Đã xác nhận', 'Khớp', 'Đã ghi nhận', 'Hoạt động', 'Đang hiệu lực', 'Thành công', 'Đã xử lý'])
 const warning = new Set(['PENDING', 'MAINTENANCE', 'Chờ xác nhận', 'Chênh lệch', 'Đang xử lý'])
-const danger = new Set(['REJECTED', 'LOCKED', 'FULL', 'Chưa nhận tiền', 'Chưa xử lý'])
+const danger = new Set(['REJECTED', 'LOCKED', 'FULL', 'Chưa nhận tiền', 'Chưa xử lý', 'Bị khóa', 'Hết hiệu lực', 'Đã thu hồi'])
 
 export function AdminStatusBadge({ status }: { status: string }) {
   const label = vehicleStatuses[status as VehicleStatus] ?? parkingStatuses[status as ParkingLotStatus] ?? status
