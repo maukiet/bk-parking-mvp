@@ -39,8 +39,26 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-bkparking123}
       JWT_SECRET: ${JWT_SECRET:-BkParkingMvpSecretKeyForJwtSigning2026VeryLongAndSecureKey123456}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
+      VEHICLE_DOCUMENTS_DIR: /app/uploads/vehicle-documents
+    volumes:
+      - uploads_data:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: bk-parking-web
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:
+    driver: local
+  uploads_data:
     driver: local
