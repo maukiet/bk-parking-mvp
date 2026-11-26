@@ -1,127 +1,134 @@
 import React from 'react';
-import { X, CreditCard, AlertCircle, PhoneCall, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
-import type { ScanState } from '../types';
+import type { ParkingLotDto } from '../../../../types/api';
+import type { CheckpointPhase, CheckpointReview } from '../types';
 
 interface ActionBarProps {
-  scanState: ScanState;
-  isSubmitting: boolean;
-  isOffline: boolean;
-  onReject: () => void;
-  onTransferException: () => void;
+  phase: CheckpointPhase;
+  review: CheckpointReview | null;
+  selectedLot: ParkingLotDto | undefined;
+  entryBlockReason: string | null;
+  onConfirmEntry: () => void;
+  onConfirmExit: () => void;
   onResetIdle: () => void;
-  onOpenGuestIssue: () => void;
-  onOpenGuestExit: () => void;
-  onOpenIncident: () => void;
 }
 
 export const ActionBar: React.FC<ActionBarProps> = ({
-  scanState,
-  isSubmitting,
-  isOffline,
-  onReject,
-  onTransferException,
+  phase,
+  review,
+  selectedLot,
+  entryBlockReason,
+  onConfirmEntry,
+  onConfirmExit,
   onResetIdle,
-  onOpenGuestIssue,
-  onOpenGuestExit,
-  onOpenIncident,
 }) => {
+  const verified = review?.verified;
+  const isSubmitting = phase === 'submitting';
+  const isCheckIn = verified?.recommendedAction === 'CHECK_IN' && verified.validForEntry;
+  const isCheckOut = verified?.recommendedAction === 'CHECK_OUT' && verified.validForExit;
+  const available = selectedLot
+    ? (selectedLot.availableSlots ?? Math.max(0, selectedLot.capacity - selectedLot.occupiedCount))
+    : 0;
+
   return (
-    <footer className="h-actionbar w-full bg-surface-card border-t border-border-default flex items-center justify-between px-4 shrink-0 select-none">
-      {/* Cụm nút hành động quyết định bên trái (~60%) */}
-      <div className="flex-1 flex items-center gap-3">
-        {scanState === 'reading' && (
+    <footer className="min-h-16 py-2 w-full bg-surface-card border-t border-border-default flex items-center justify-between gap-4 px-5 shrink-0 select-none flex-wrap">
+      {phase === 'idle' && (
+        <div className="flex items-center justify-between w-full text-xs text-text-secondary gap-2 flex-wrap">
+          <span>
+            Sẵn sàng — Quét mã QR hoặc nhập biển số để đối chiếu trực tiếp với cơ sở dữ liệu (F2 để focus).
+          </span>
+          {selectedLot && (
+            <span className="font-semibold text-text-primary">
+              {selectedLot.name}: còn {available}/{selectedLot.capacity} chỗ trống
+            </span>
+          )}
+        </div>
+      )}
+
+      {phase === 'verifying' && (
+        <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-info-text">
             <Loader2 className="w-4 h-4 text-info animate-spin" />
-            Đang xác thực, vui lòng chờ...
+            Đang xác thực phương tiện với Backend...
           </div>
-        )}
+          <Button variant="subtle" onClick={onResetIdle} icon={<RotateCcw className="w-4 h-4" />}>
+            Hủy
+          </Button>
+        </div>
+      )}
 
-        {scanState === 'valid' && (
-          <div className="flex items-center gap-3 w-full">
-            <span className="text-sm font-bold text-success-text flex-1">
-              ✓ Lượt xe đã được ghi nhận tự động vào hệ thống.
-            </span>
-            <Button variant="inverse" icon={<ArrowRight className="w-5 h-5" />} onClick={onResetIdle}>
-              Lượt tiếp theo
-            </Button>
+      {(phase === 'reviewed' || phase === 'submitting') && (
+        <div className="flex items-center justify-between gap-3 w-full flex-wrap">
+          <div className="text-xs text-text-secondary flex-1 min-w-[220px]">
+            {isCheckIn && !entryBlockReason && (
+              <span>
+                Xác nhận ghi nhận xe <strong>{verified?.licensePlate}</strong> VÀO{' '}
+                <strong>{selectedLot?.name}</strong>.
+              </span>
+            )}
+            {isCheckIn && entryBlockReason && (
+              <span className="font-semibold text-warning-text">{entryBlockReason}</span>
+            )}
+            {isCheckOut && (
+              <span>
+                Xác nhận đóng phiên gửi xe cho <strong>{verified?.licensePlate}</strong> RA khỏi{' '}
+                <strong>{verified?.activeSession?.parkingLotName || 'bãi'}</strong>.
+              </span>
+            )}
+            {!isCheckIn && !isCheckOut && (
+              <span className="font-semibold text-danger-text">
+                Phương tiện không đủ điều kiện qua cổng. Nhấn Esc hoặc nút bên cạnh để quét lượt mới.
+              </span>
+            )}
           </div>
-        )}
 
-        {scanState === 'invalid' && (
-          <div className="flex items-center gap-3 w-full">
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
             <Button
-              variant="danger"
-              icon={<X className="w-5 h-5" />}
+              variant="outline"
               disabled={isSubmitting}
-              onClick={onReject}
-              className="w-48"
+              onClick={onResetIdle}
+              icon={<RotateCcw className="w-4 h-4" />}
             >
-              TỪ CHỐI
+              {!isCheckIn && !isCheckOut ? 'Đóng & Quét mới (Esc)' : 'Hủy (Esc)'}
             </Button>
-            <Button variant="outline" disabled={isSubmitting} onClick={onTransferException} className="flex-1">
-              Chuyển Xử lý ngoại lệ
-            </Button>
-          </div>
-        )}
 
-        {scanState === 'manual' && isOffline && (
-          <div className="flex items-center gap-3 w-full">
-            <Button variant="info" icon={<Check className="w-5 h-5" />} onClick={onResetIdle} className="flex-1">
-              Cho qua (Ngoại tuyến)
-            </Button>
-            <Button variant="danger" icon={<X className="w-5 h-5" />} onClick={onReject} className="w-44">
-              Từ chối
-            </Button>
-          </div>
-        )}
+            {isCheckIn && (
+              <Button
+                variant="success"
+                disabled={isSubmitting || Boolean(entryBlockReason)}
+                onClick={onConfirmEntry}
+                icon={
+                  isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ArrowDownToLine className="w-5 h-5" />
+                  )
+                }
+              >
+                {isSubmitting ? 'Đang ghi nhận VÀO...' : 'XÁC NHẬN CHO VÀO'}
+              </Button>
+            )}
 
-        {scanState === 'idle' && (
-          <div className="text-xs text-text-secondary">
-            Sẵn sàng nhận diện lượt quét QR hoặc quét thẻ cứng khách vãng lai.
+            {isCheckOut && (
+              <Button
+                variant="info"
+                disabled={isSubmitting}
+                onClick={onConfirmExit}
+                icon={
+                  isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ArrowUpFromLine className="w-5 h-5" />
+                  )
+                }
+              >
+                {isSubmitting ? 'Đang ghi nhận RA...' : 'XÁC NHẬN CHO RA'}
+              </Button>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Cụm nút nghiệp vụ phụ bên phải */}
-      <div className="flex items-center justify-end gap-2 pl-4">
-        <Button
-          variant="info"
-          icon={<CreditCard className="w-4 h-4" />}
-          onClick={onOpenGuestIssue}
-          className="text-xs px-3"
-          disabled={scanState === 'reading'}
-        >
-          Cấp thẻ khách
-        </Button>
-        <Button
-          variant="subtle"
-          icon={<CreditCard className="w-4 h-4" />}
-          onClick={onOpenGuestExit}
-          className="text-xs px-3"
-          disabled={scanState === 'reading'}
-        >
-          Thu thẻ khách
-        </Button>
-        <Button
-          variant="subtle"
-          icon={<AlertCircle className="w-4 h-4" />}
-          onClick={onTransferException}
-          className="text-xs px-3"
-          disabled={scanState === 'reading'}
-        >
-          Xử lý ngoại lệ
-        </Button>
-        <Button
-          variant="subtle"
-          icon={<PhoneCall className="w-4 h-4" />}
-          onClick={onOpenIncident}
-          className="text-xs px-3"
-          disabled={scanState === 'reading'}
-        >
-          Báo sự cố
-        </Button>
-      </div>
+        </div>
+      )}
     </footer>
   );
 };

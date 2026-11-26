@@ -232,6 +232,7 @@ export interface VehicleQrResponse {
 export interface VerifyQrRequest {
   qrOrPlate?: string;
   qrToken?: string;
+  parkingLotId?: number;
 }
 
 export interface CheckInRequest {
@@ -259,6 +260,8 @@ export interface ParkingSessionDto {
   parkingLotName: string;
   entryGate: string | null;
   exitGate: string | null;
+  checkinStaffName?: string | null;
+  checkoutStaffName?: string | null;
   checkinTime: string | null;
   checkoutTime: string | null;
   status: SessionStatus;
@@ -276,13 +279,20 @@ export interface VerifyQrResponse {
   model: string | null;
   color: string | null;
   vehicleStatus: VehicleStatus;
+  rejectionReason?: string | null;
+  vehiclePhotoUrl?: string | null;
+  ownerRelationship?: VehicleOwnerRelationship | string | null;
   qrToken: string | null;
   ownerName: string;
   ownerCode: string;
+  ownerPhone?: string | null;
   packageEligible: boolean;
   packageName: string | null;
+  packageEndDate?: string | null;
   validForEntry: boolean;
   validForExit: boolean;
+  lotEligible?: boolean;
+  lotWarningMessage?: string | null;
   activeSession: ParkingSessionDto | null;
 }
 
@@ -294,11 +304,15 @@ export interface StaffVehicleSearchResultDto {
   model: string | null;
   color: string | null;
   status: VehicleStatus;
+  rejectionReason?: string | null;
+  vehiclePhotoUrl?: string | null;
+  ownerRelationship?: VehicleOwnerRelationship | string | null;
   qrToken: string | null;
   ownerName: string;
   ownerCode: string;
   ownerPhone: string | null;
   packageEligible: boolean;
+  packageEndDate?: string | null;
   currentlyParked: boolean;
   currentParkingLot: string | null;
   activeSession: ParkingSessionDto | null;
