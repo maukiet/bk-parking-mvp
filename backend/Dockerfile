@@ -18,8 +18,10 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Add security best practice: run as non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Add security best practice: run as non-root user and prepare writable upload directory
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /app/uploads/vehicle-documents \
+    && chown -R appuser:appgroup /app/uploads
 USER appuser
 
 # Copy built JAR from builder stage
