@@ -3,18 +3,14 @@ import type { ParkingLotDto, ParkingLotStatus, UpdateParkingLotRequest } from '.
 import { PageHeader } from '../../../shared/components/PageHeader'
 import { adminErrorMessage } from '../adminApi'
 import { AdminConfirmation } from '../AdminConfirmation'
+import { AdminPagination } from '../AdminPagination'
 import { getParkingLot, getParkingLots, updateParkingLot } from '../parkingLotsApi'
+import { AdminStatusBadge } from '../AdminStatusBadge'
+import { formatAdminDateTime, parkingStatuses as statusLabels, vehicleTypes as vehicleLabels, vehicleTypeLabel } from '../adminPresentation'
 
-const statusLabels: Record<ParkingLotStatus, string> = {
-  OPEN: 'Hoạt động', FULL: 'Đã đầy', CLOSED: 'Tạm đóng', MAINTENANCE: 'Bảo trì',
-}
-
-const vehicleLabels: Record<string, string> = {
-  MOTORBIKE: 'Xe máy', ELECTRIC_BIKE: 'Xe điện', BICYCLE: 'Xe đạp',
-}
-const field = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2'
-const button = 'rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50'
-const primary = 'rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50'
+const field = 'min-h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-white px-3 py-2'
+const button = 'min-h-11 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50'
+const primary = 'min-h-11 whitespace-nowrap rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50'
 
 function vehicleTypes(lot: ParkingLotDto) {
   return (lot.allowedVehicleTypes ?? '').split(',').map(value => value.trim()).filter(Boolean)
@@ -31,9 +27,10 @@ export function AdminParkingLotsPage() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
   const [vehicle, setVehicle] = useState('')
-  const [view, setView] = useState<'table' | 'cards'>('table')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -50,14 +47,19 @@ export function AdminParkingLotsPage() {
   const filtered = lots.filter(lot =>
     (!status || lot.status === status) &&
     (!vehicle || vehicleTypes(lot).includes(vehicle)) &&
-    `${lot.code} ${lot.name} ${lot.location ?? ''}`.toLocaleLowerCase('vi-VN').includes(keyword),
+    (!keyword || [lot.name, lot.location ?? ''].some(value =>
+      value.toLocaleLowerCase('vi-VN').includes(keyword),
+    )),
   )
-  const metrics = [
-    ['Tổng số bãi', lots.length],
-    ['Tổng sức chứa', lots.reduce((sum, lot) => sum + lot.capacity, 0)],
-    ['Xe đang đỗ', lots.reduce((sum, lot) => sum + lot.occupiedCount, 0)],
-    ['Chỗ còn trống', lots.reduce((sum, lot) => sum + lot.availableSlots, 0)],
-  ] as const
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pagedLots = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const metrics: { label: string; value: number }[] = [
+    { label: 'Tổng số bãi', value: lots.length },
+    { label: 'Tổng sức chứa', value: lots.reduce((sum, lot) => sum + lot.capacity, 0) },
+    { label: 'Xe đang đỗ', value: lots.reduce((sum, lot) => sum + lot.occupiedCount, 0) },
+    { label: 'Chỗ còn trống', value: lots.reduce((sum, lot) => sum + lot.availableSlots, 0) },
+  ]
 
   function onSaved(saved: ParkingLotDto) {
     setState(current => current.status === 'ready'
@@ -88,27 +90,39 @@ export function AdminParkingLotsPage() {
       {state.status === 'ready' && (
         <>
           <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-slate-200 bg-[#f5f3fa] p-5">
-                <dt className="text-sm text-slate-600">{label}</dt>
-                <dd className="mt-2 text-2xl font-bold">{value.toLocaleString('vi-VN')}</dd>
+            {metrics.map(metric => (
+              <div
+                key={metric.label}
+                className="flex min-w-0 flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-sm font-medium leading-snug text-slate-600">{metric.label}</dt>
+                </div>
+                <dd className="text-3xl font-bold tracking-tight text-slate-950 tabular-nums">
+                  {metric.value.toLocaleString('vi-VN')}
+                </dd>
               </div>
             ))}
           </dl>
           <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]">
-            <input className={field} type="search" aria-label="Tìm bãi đỗ" placeholder="Tìm theo tên hoặc mã bãi" value={query} onChange={e => setQuery(e.target.value)} />
-            <select className={field} aria-label="Trạng thái" value={status} onChange={e => setStatus(e.target.value)}>
+            <input className={field} type="search" aria-label="Tìm bãi đỗ" placeholder="Tìm theo tên hoặc khu vực" value={query} onChange={e => {
+              setQuery(e.target.value)
+              setPage(1)
+            }} />
+            <select className={field} aria-label="Trạng thái" value={status} onChange={e => {
+              setStatus(e.target.value)
+              setPage(1)
+            }}>
               <option value="">Mọi trạng thái</option>
               {Object.entries(statusLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
-            <select className={field} aria-label="Loại xe" value={vehicle} onChange={e => setVehicle(e.target.value)}>
+            <select className={field} aria-label="Loại xe" value={vehicle} onChange={e => {
+              setVehicle(e.target.value)
+              setPage(1)
+            }}>
               <option value="">Mọi loại xe</option>
               {Object.entries(vehicleLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
             </select>
-          </div>
-          <div role="group" aria-label="Kiểu hiển thị bãi đỗ" className="flex flex-wrap gap-2">
-            <button type="button" aria-pressed={view === 'table'} className={view === 'table' ? primary : button} onClick={() => setView('table')}>Dạng bảng</button>
-            <button type="button" aria-pressed={view === 'cards'} className={view === 'cards' ? primary : button} onClick={() => setView('cards')}>Dạng thẻ</button>
           </div>
           {!filtered.length ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
@@ -118,53 +132,45 @@ export function AdminParkingLotsPage() {
                   setQuery('')
                   setStatus('')
                   setVehicle('')
+                  setPage(1)
                 }}>Xóa bộ lọc</button>
               )}
             </section>
-          ) : view === 'cards' ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map(lot => (
-                <article key={lot.id} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-                  <div className="flex flex-wrap justify-between gap-2 text-xs font-semibold">
-                    <span className="rounded-lg bg-black px-2 py-1 text-lime-400">{lot.code}</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-1">{statusLabels[lot.status]}</span>
-                  </div>
-                  <div>
-                    <h2 className="font-bold">{lot.name}</h2>
-                    <p className="text-sm text-slate-600">{lot.location}</p>
-                  </div>
-                  <p className="text-sm">Đang đỗ <strong>{lot.occupiedCount}/{lot.capacity}</strong> xe · Còn <strong>{lot.availableSlots}</strong> chỗ</p>
-                  <p className="text-xs text-slate-600">{vehicleTypes(lot).map(type => vehicleLabels[type] ?? type).join(', ') || '—'}</p>
-                  <button type="button" className={button} aria-label={`Xem chi tiết ${lot.name}`} onClick={() => openDetails(lot.id)}>Chi tiết</button>
-                </article>
-              ))}
-            </div>
           ) : (
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-            <table className="w-full min-w-[730px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-600">
-                <tr>{['Mã', 'Tên bãi và khu vực', 'Loại xe', 'Sức chứa', 'Đang đỗ', 'Còn trống', 'Trạng thái', 'Thao tác'].map(label =>
-                  <th key={label} scope="col" className="p-3">{label}</th>,
-                )}</tr>
-              </thead>
-              <tbody>
-                {filtered.map(lot => (
-                  <tr key={lot.id} className="border-t border-slate-100">
-                    <td className="p-3"><span className="inline-block rounded-lg bg-black px-2 py-1 font-semibold text-lime-400">{lot.code}</span></td>
-                    <th scope="row" className="p-3 font-semibold">{lot.name}<span className="block text-xs font-normal text-slate-500">{lot.location}</span></th>
-                    <td className="p-3">{vehicleTypes(lot).map(type => vehicleLabels[type] ?? type).join(', ') || '—'}</td>
-                    <td className="p-3">{lot.capacity}</td>
-                    <td className="p-3">{lot.occupiedCount}</td>
-                    <td className="p-3">{lot.availableSlots}</td>
-                    <td className="p-3">{statusLabels[lot.status]}</td>
-                    <td className="p-3"><button type="button" className={button} aria-label={`Xem chi tiết ${lot.name}`} onClick={() => openDetails(lot.id)}>Chi tiết</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="border-t border-slate-100 p-3 text-sm text-slate-600">
-              Hiển thị {filtered.length} / {lots.length} bãi
-            </p>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[730px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-600">
+                  <tr>{['Tên bãi và khu vực', 'Loại xe', 'Sức chứa', 'Đang đỗ', 'Còn trống', 'Trạng thái', 'Thao tác'].map(label =>
+                    <th key={label} scope="col" className="p-3">{label}</th>,
+                  )}</tr>
+                </thead>
+                <tbody>
+                  {pagedLots.map(lot => (
+                    <tr key={lot.id} className="border-t border-slate-100">
+                      <th scope="row" className="p-3 font-semibold">{lot.name}<span className="block text-xs font-normal text-slate-500">{lot.location}</span></th>
+                      <td className="p-3">{vehicleTypes(lot).map(vehicleTypeLabel).join(', ') || '—'}</td>
+                      <td className="p-3">{lot.capacity}</td>
+                      <td className="p-3">{lot.occupiedCount}</td>
+                      <td className="p-3">{lot.availableSlots}</td>
+                      <td className="p-3"><AdminStatusBadge status={lot.status} /></td>
+                      <td className="p-3"><button type="button" className={button} aria-label={`Xem chi tiết ${lot.name}`} onClick={() => openDetails(lot.id)}>Chi tiết</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <AdminPagination
+              page={currentPage}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              itemLabel="bãi"
+              onPageChange={setPage}
+              onPageSizeChange={size => {
+                setPageSize(size)
+                setPage(1)
+              }}
+            />
           </div>
           )}
         </>
@@ -252,6 +258,9 @@ function ParkingLotDrawer({ id, onClose, onSaved }: {
     <dialog
       ref={dialog}
       aria-labelledby="parking-drawer-title"
+      onClick={event => {
+        if (event.target === dialog.current && !saving) onClose()
+      }}
       onCancel={event => {
         event.preventDefault()
         if (!saving) onClose()
@@ -274,7 +283,7 @@ function ParkingLotDrawer({ id, onClose, onSaved }: {
         {lot && (
           <form key={editing ? 'edit' : 'view'} onSubmit={prepareUpdate} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
             <h3 className="font-bold">Thông tin cơ bản</h3>
-            <p className="text-sm">Mã bãi <strong>{lot.code}</strong> · {statusLabels[lot.status]}</p>
+            <div className="flex flex-wrap items-center gap-2 text-sm"><AdminStatusBadge status={lot.status} /></div>
             <fieldset disabled={!editing || saving || pendingUpdate !== null} className="space-y-3 disabled:text-slate-600">
               <label className="block text-sm">Tên bãi<input className={field} name="name" defaultValue={lot.name} required /></label>
               <label className="block text-sm">Khu vực<input className={field} name="location" defaultValue={lot.location ?? ''} /></label>
@@ -292,19 +301,12 @@ function ParkingLotDrawer({ id, onClose, onSaved }: {
               <div className="space-y-2 text-sm">
                 <details open className="rounded-xl border border-slate-200 p-3">
                   <summary className="cursor-pointer font-semibold">Loại xe được phép</summary>
-                  <p className="mt-2 text-slate-600">{vehicleTypes(lot).map(type => vehicleLabels[type] ?? type).join(', ') || 'Chưa có thông tin'}</p>
-                </details>
-                <details className="rounded-xl border border-slate-200 p-3">
-                  <summary className="cursor-pointer font-semibold">Cổng, giờ hoạt động và thiết bị</summary>
-                  <p className="mt-2 text-slate-600">Các thông tin này chưa có dữ liệu từ hệ thống.</p>
-                </details>
-                <details className="rounded-xl border border-slate-200 p-3">
-                  <summary className="cursor-pointer font-semibold">Sức chứa theo loại xe và chỗ đặt trước</summary>
-                  <p className="mt-2 text-slate-600">Hệ thống hiện ghi nhận tổng sức chứa của bãi.</p>
+                  <p className="mt-2 text-slate-600">{vehicleTypes(lot).map(vehicleTypeLabel).join(', ') || 'Chưa có thông tin'}</p>
                 </details>
                 <details className="rounded-xl border border-slate-200 p-3">
                   <summary className="cursor-pointer font-semibold">Thông tin cập nhật</summary>
-                  <p className="mt-2 text-slate-600">{lot.updatedAt ? `Cập nhật gần nhất: ${new Date(lot.updatedAt).toLocaleString('vi-VN')}` : 'Chưa có thời gian cập nhật.'}</p>
+                  <p className="mt-2 text-slate-600">{lot.updatedAt ? `Cập nhật gần nhất: ${formatAdminDateTime(lot.updatedAt)} (GMT+7)` : 'Chưa có thời gian cập nhật.'}</p>
+                  <p className="mt-1 text-xs text-slate-500">Thời điểm lưu cấu hình bãi gần nhất, không phải thời điểm tải lại trang.</p>
                 </details>
               </div>
             )}
