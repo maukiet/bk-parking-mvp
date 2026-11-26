@@ -23,12 +23,24 @@ export const VehicleSearchView: React.FC<VehicleSearchViewProps> = ({
 
   const trimmed = keyword.trim();
 
-  useEffect(() => {
-    if (trimmed.length >= 2) {
-      searchApi.searchVehicles(trimmed).then(setSearchResults);
-    } else {
+  const handleKeywordChange = (value: string) => {
+    setKeyword(value);
+    setMode('list');
+    setSelectedUser(null);
+    if (value.trim().length < 2) {
       setSearchResults([]);
     }
+  };
+
+  useEffect(() => {
+    if (trimmed.length < 2) return;
+    let cancelled = false;
+    searchApi.searchVehicles(trimmed).then((res) => {
+      if (!cancelled) setSearchResults(res);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [trimmed]);
 
   const handleViewDetail = (user: UserRecord) => {
@@ -65,13 +77,13 @@ export const VehicleSearchView: React.FC<VehicleSearchViewProps> = ({
             <input
               type="text"
               value={keyword}
-              onChange={(e) => { setKeyword(e.target.value); setMode('list'); setSelectedUser(null); }}
+              onChange={(e) => handleKeywordChange(e.target.value)}
               placeholder="Ví dụ: 2311770 hoặc 59X3-682.45"
               className="bg-transparent text-text-primary text-base font-bold w-full focus:outline-none"
             />
           </div>
           {keyword && (
-            <Button variant="outline" onClick={() => { setKeyword(''); setMode('list'); setSelectedUser(null); }}>
+            <Button variant="outline" onClick={() => handleKeywordChange('')}>
               Xóa
             </Button>
           )}
