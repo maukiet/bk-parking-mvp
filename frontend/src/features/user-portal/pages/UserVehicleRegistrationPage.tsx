@@ -94,6 +94,7 @@ export function UserVehicleRegistrationPage() {
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({})
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [isRetryingEligibility, setIsRetryingEligibility] = useState(false)
 
   useEffect(() => {
     if (isAuthLoading || !user || user.role !== 'ROLE_USER') return
@@ -111,6 +112,27 @@ export function UserVehicleRegistrationPage() {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [isAuthLoading, user?.id, user?.role])
+
+  async function retryEligibility() {
+    if (isRetryingEligibility) return
+
+    setIsRetryingEligibility(true)
+    try {
+      const result = await getVehicleEligibility()
+      setEligibility(result)
+      const allowed = result.allowedVehicleTypes as VehicleType[]
+      setVehicleType((current) => (
+        allowed.includes(current)
+          ? current
+          : (allowed.includes('MOTORBIKE') ? 'MOTORBIKE' : (allowed[0] ?? 'MOTORBIKE'))
+      ))
+      setLoadingError('')
+    } catch (reason) {
+      setLoadingError(reason instanceof Error ? reason.message : 'Không tải được hạn mức đăng ký.')
+    } finally {
+      setIsRetryingEligibility(false)
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -174,7 +196,19 @@ export function UserVehicleRegistrationPage() {
     <section className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Đăng ký xe mới" description="Gửi thông tin và giấy tờ phương tiện để được xét duyệt." action={<Link to="/user/vehicles" className="text-sm font-semibold text-slate-600 underline underline-offset-4">Quay lại danh sách</Link>} />
 
-      {loadingError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-800">{loadingError}</p>}
+      {loadingError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-800">
+          <span>{loadingError}</span>
+          <button
+            type="button"
+            onClick={() => void retryEligibility()}
+            disabled={isRetryingEligibility}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg px-3 font-semibold underline disabled:cursor-wait disabled:opacity-60"
+          >
+            {isRetryingEligibility ? 'Đang tải lại…' : 'Thử tải lại'}
+          </button>
+        </div>
+      )}
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-800">{error}</p>}
       {eligibility && !eligibility.canRegister && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900">Tài khoản đã đạt hạn mức {eligibility.maxVehicleLimit} phương tiện. Bạn có thể hủy xe không còn sử dụng tại trang quản lý.</p>}
 
