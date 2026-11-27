@@ -39,5 +39,5 @@ export function useAdminDashboard(enabled: boolean) {
     setRequest(value => value + 1)
   }
 
-  return { state, refresh }
+  return { state, refresh, revision: request }
 }

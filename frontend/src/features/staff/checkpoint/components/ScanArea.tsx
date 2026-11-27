@@ -1,119 +1,273 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { QrCode, CheckCircle2, Loader2, Search, ArrowRight } from 'lucide-react';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { QrCode, Loader2, Search, ArrowRight, Database, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { Badge } from '../../../../components/ui/Badge';
+import type { ParkingLotDto, StaffVehicleSearchResultDto } from '../../../../types/api';
+import {
+  formatAllowedVehicleTypes,
+  getLotStatusDisplay,
+  formatVehicleType,
+  getVehicleStatusDisplay,
+} from '../../utils/formatters';
 
 interface ScanAreaProps {
-  onScan: (code: string) => void;
-  isReading?: boolean;
+  selectedLot: ParkingLotDto | undefined;
+  vehicles: StaffVehicleSearchResultDto[];
+  scanInput: string;
+  onScanInputChange: (val: string) => void;
+  isLoadingData: boolean;
+  isVerifying: boolean;
+  onVerify: (code: string) => void;
+  onGoToSearch: () => void;
 }
 
-export const ScanArea: React.FC<ScanAreaProps> = ({ onScan, isReading = false }) => {
-  const [inputValue, setInputValue] = useState('');
+function normalizeQuery(raw: string): string {
+  return raw.replace(/[-.\s]/g, '').toLowerCase();
+}
+
+export const ScanArea: React.FC<ScanAreaProps> = ({
+  selectedLot,
+  vehicles,
+  scanInput,
+  onScanInputChange,
+  isLoadingData,
+  isVerifying,
+  onVerify,
+  onGoToSearch,
+}) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Lắng nghe phím Enter từ đầu đọc barcode/RFID
-  const handleSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const clean = inputValue.trim();
-    if (!clean) return;
-    onScan(clean);
-    setInputValue('');
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = scanInput.trim();
+    if (!clean || isVerifying) return;
+    onVerify(clean);
   };
 
-  // Tự động focus vào ô nhập để sẵn sàng nhận tín hiệu đầu đọc mã
   useEffect(() => {
-    if (!isReading) {
+    if (!isVerifying) {
       inputRef.current?.focus();
     }
-  }, [isReading]);
+  }, [isVerifying]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const autocompleteMatches = useMemo(() => {
+    const clean = scanInput.trim().toLowerCase();
+    const normClean = normalizeQuery(scanInput);
+    if (!clean) return [];
+    return vehicles
+      .filter((v) => {
+        const plateNorm = normalizeQuery(v.licensePlate);
+        const text = `${v.licensePlate} ${v.ownerName} ${v.ownerCode} ${v.qrToken ?? ''}`.toLowerCase();
+        return text.includes(clean) || (normClean.length >= 2 && plateNorm.includes(normClean));
+      })
+      .slice(0, 5);
+  }, [scanInput, vehicles]);
+
+  const quickDbVehicles = useMemo(() => {
+    return [...vehicles]
+      .sort((a, b) => {
+        if (a.currentlyParked !== b.currentlyParked) return a.currentlyParked ? -1 : 1;
+        if (a.status === 'APPROVED' && b.status !== 'APPROVED') return -1;
+        if (a.status !== 'APPROVED' && b.status === 'APPROVED') return 1;
+        return a.vehicleId - b.vehicleId;
+      })
+      .slice(0, 6);
+  }, [vehicles]);
+
+  const available = selectedLot
+    ? (selectedLot.availableSlots ?? Math.max(0, selectedLot.capacity - selectedLot.occupiedCount))
+    : 0;
+  const lotStatusDisplay = selectedLot ? getLotStatusDisplay(selectedLot.status) : null;
 
   return (
-    <div className="h-full bg-surface-card border border-border-muted rounded-2xl p-6 flex flex-col justify-between shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-text-primary">Trạm kiểm soát Bãi A</h2>
-        {isReading ? (
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-info-text">
-            <Loader2 className="w-4 h-4 text-info animate-spin" /> Đang kiểm tra dữ liệu...
+    <div className="h-full bg-surface-card border border-border-muted rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-sm overflow-y-auto">
+      {/* Header ngữ cảnh trạm */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold text-text-primary">
+              {selectedLot ? selectedLot.name : 'Trạm kiểm soát'}
+            </h2>
+            {lotStatusDisplay && (
+              <Badge variant={lotStatusDisplay.variant}>{lotStatusDisplay.label}</Badge>
+            )}
+          </div>
+          {selectedLot && (
+            <p className="text-xs text-text-secondary mt-0.5">
+              Cho phép: <strong>{formatAllowedVehicleTypes(selectedLot.allowedVehicleTypes)}</strong> · Còn{' '}
+              <strong>{available}/{selectedLot.capacity}</strong> chỗ trống
+            </p>
+          )}
+        </div>
+
+        {isVerifying ? (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-info-text bg-info-surface border border-info-border px-3 py-1 rounded-full">
+            <Loader2 className="w-3.5 h-3.5 text-info animate-spin" /> Đang kiểm tra với DB...
           </span>
         ) : (
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-success-text">
-            <CheckCircle2 className="w-4 h-4 text-success" /> Đầu đọc &amp; Camera sẵn sàng
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-success-text bg-success-surface border border-success-border px-3 py-1 rounded-full">
+            <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Sẵn sàng quét (F2)
           </span>
         )}
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-4 my-auto w-full max-w-lg mx-auto">
-        {isReading ? (
-          <>
-            <div className="w-28 h-28 rounded-2xl border-2 border-info-border bg-info-surface flex items-center justify-center">
-              <Loader2 className="w-14 h-14 text-info animate-spin" />
+      {/* Khu vực quét chính */}
+      <div className="flex flex-col items-center justify-center gap-4 my-auto w-full max-w-xl mx-auto">
+        {isVerifying ? (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="w-24 h-24 rounded-2xl border-2 border-info-border bg-info-surface flex items-center justify-center">
+              <Loader2 className="w-12 h-12 text-info animate-spin" />
             </div>
-            <h3 className="text-2xl font-bold text-info-text text-center">Đang xác thực lượt xe...</h3>
-            <p className="text-sm text-text-secondary text-center">
-              Camera đang đối chiếu biển số và kiểm tra quyền ra/vào bãi.
+            <h3 className="text-xl font-bold text-info-text text-center">
+              Đang xác thực phương tiện từ cơ sở dữ liệu...
+            </h3>
+            <p className="text-xs text-text-secondary text-center">
+              Hệ thống tự động kiểm tra trạng thái duyệt, gói đỗ xe, hạn mức bãi và lượt vào/ra đang mở.
             </p>
-          </>
+          </div>
         ) : (
           <>
-            <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-border-default bg-surface-subtle flex items-center justify-center">
-              <QrCode className="w-12 h-12 text-text-secondary" />
+            <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-border-default bg-surface-subtle flex items-center justify-center">
+              <QrCode className="w-10 h-10 text-text-secondary" />
             </div>
             <div className="text-center">
-              <h3 className="text-xl font-bold text-text-primary">Quét mã QR / Thẻ sinh viên</h3>
+              <h3 className="text-xl font-bold text-text-primary">Quét mã QR hoặc nhập Biển số</h3>
               <p className="text-xs text-text-secondary mt-1">
-                Đưa thẻ hoặc QR trước đầu đọc, hoặc nhập thủ công biển số / MSSV bên dưới.
+                Hỗ trợ đọc mã QR, biển số đầy đủ hoặc viết liền (VD: <code>59X368245</code>). Gõ tên/MSSV để gợi ý từ DB.
               </p>
             </div>
 
-            {/* Ô quét mã / nhập biển số thực tế */}
-            <form onSubmit={handleSubmit} className="w-full flex items-center gap-2 mt-2">
-              <div className="flex-1 flex items-center gap-2 bg-surface-subtle border border-border-default rounded-xl px-3 py-2">
-                <Search className="w-4 h-4 text-text-secondary shrink-0" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Nhập MSSV (2011876) hoặc biển số (59X3-456.78)..."
-                  className="bg-transparent text-sm font-bold text-text-primary w-full focus:outline-none"
-                />
-              </div>
-              <Button variant="inverse" icon={<ArrowRight className="w-4 h-4" />}>
-                Kiểm tra
-              </Button>
-            </form>
+            <div className="w-full relative">
+              <form onSubmit={handleSubmit} className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex-1 flex items-center gap-2 bg-surface-subtle border border-border-default rounded-full px-4 min-h-touch focus-within:border-border-strong">
+                  <Search className="w-4 h-4 text-text-secondary shrink-0" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={scanInput}
+                    onChange={(e) => onScanInputChange(e.target.value)}
+                    placeholder="Quét QR (BKQR-...), nhập biển số (59X3-682.45) hoặc gõ tên/MSSV..."
+                    className="bg-transparent text-sm font-bold text-text-primary w-full focus:outline-none"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  variant="inverse"
+                  disabled={!scanInput.trim()}
+                  icon={<ArrowRight className="w-4 h-4" />}
+                >
+                  Kiểm tra
+                </Button>
+              </form>
 
-            {/* Gợi ý quét nhanh cho trạm */}
-            <div className="flex items-center gap-1.5 flex-wrap justify-center text-xs text-text-secondary">
-              <span>Thử nhanh:</span>
-              <button
-                type="button"
-                onClick={() => onScan('2011876')}
-                className="px-2 py-0.5 rounded-full bg-surface-subtle hover:bg-surface-hover text-text-primary border border-border-default font-medium"
-              >
-                2011876 (Hợp lệ)
-              </button>
-              <button
-                type="button"
-                onClick={() => onScan('59P1-123.45')}
-                className="px-2 py-0.5 rounded-full bg-surface-subtle hover:bg-surface-hover text-text-primary border border-border-default font-medium"
-              >
-                59P1-123.45
-              </button>
-              <button
-                type="button"
-                onClick={() => onScan('59C1-246.80')}
-                className="px-2 py-0.5 rounded-full bg-danger-surface text-danger-text border border-danger-border font-medium"
-              >
-                Khóa / Hết hạn
-              </button>
+              {/* Autocomplete trực tiếp từ DB khi bảo vệ đang gõ */}
+              {autocompleteMatches.length > 0 && (
+                <div className="mt-2 bg-surface-card border border-border-default rounded-2xl shadow-lg overflow-hidden divide-y divide-border-subtle">
+                  <div className="px-3 py-1.5 bg-surface-subtle text-[11px] font-bold text-text-secondary flex items-center justify-between">
+                    <span>Gợi ý khớp trong CSDL ({autocompleteMatches.length})</span>
+                    <span>Nhấn để kiểm tra ngay</span>
+                  </div>
+                  {autocompleteMatches.map((v) => {
+                    const st = getVehicleStatusDisplay(v.status);
+                    return (
+                      <button
+                        key={v.vehicleId}
+                        type="button"
+                        onClick={() => onVerify(v.qrToken || v.licensePlate)}
+                        className="w-full px-3 py-2 flex items-center justify-between gap-2 text-left hover:bg-surface-subtle transition-colors cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                            <span>{v.licensePlate}</span>
+                            <span className="font-normal text-text-secondary">
+                              · {formatVehicleType(v.vehicleType)}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-text-secondary truncate">
+                            {v.ownerName} ({v.ownerCode}) {v.qrToken ? `· ${v.qrToken}` : ''}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {v.currentlyParked && (
+                            <Badge variant="info" className="text-[10px] px-1.5 py-0">
+                              Đang đỗ
+                            </Badge>
+                          )}
+                          <Badge variant={st.variant} className="text-[10px] px-1.5 py-0">
+                            {st.label}
+                          </Badge>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}
       </div>
 
-      <div className="bg-surface-subtle py-2.5 px-4 rounded-xl text-center text-xs text-text-secondary">
-        Hệ thống tự động ghi nhận lượt xe hợp lệ khi camera đọc khớp biển số đăng ký.
+      {/* Dải tra nhanh xe thực trong DB */}
+      <div className="bg-surface-subtle border border-border-default rounded-2xl p-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+          <span className="font-bold text-text-primary flex items-center gap-1.5">
+            <Database className="w-3.5 h-3.5 text-info" />
+            Phương tiện trong CSDL ({vehicles.length} xe) — Nhấn để kiểm tra nhanh
+          </span>
+          <button
+            type="button"
+            onClick={onGoToSearch}
+            className="font-bold text-info-text hover:underline cursor-pointer"
+          >
+            Mở Tra cứu đầy đủ ({vehicles.length}) →
+          </button>
+        </div>
+
+        {isLoadingData && vehicles.length === 0 ? (
+          <div className="text-xs text-text-secondary py-1">Đang đọc danh sách xe từ CSDL...</div>
+        ) : vehicles.length === 0 ? (
+          <div className="text-xs text-text-secondary py-1">
+            Chưa có phương tiện nào trong CSDL hoặc chưa kết nối được Backend.
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {quickDbVehicles.map((v) => {
+              const statusInfo = getVehicleStatusDisplay(v.status);
+              return (
+                <button
+                  key={v.vehicleId}
+                  type="button"
+                  disabled={isVerifying}
+                  onClick={() => onVerify(v.qrToken || v.licensePlate)}
+                  title={`${v.ownerName} (${v.ownerCode}) · ${v.qrToken || 'Chưa có QR'}`}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface-card border border-border-default hover:bg-surface-hover text-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <span className="font-bold text-text-primary">{v.licensePlate}</span>
+                  <span className="text-text-secondary">· {v.ownerName}</span>
+                  {v.currentlyParked ? (
+                    <Badge variant="info" className="text-[10px] px-1.5 py-0">Đang đỗ</Badge>
+                  ) : (
+                    <Badge variant={statusInfo.variant} className="text-[10px] px-1.5 py-0">
+                      {statusInfo.label}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
