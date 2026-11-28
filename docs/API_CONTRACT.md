@@ -181,15 +181,15 @@ Response `200`:
     "parkingLots": [
       {
         "id": 1,
-        "code": "LOT_A1",
-        "name": "Nhà xe Khu A1 (Cổng Lý Thường Kiệt)",
+        "code": "LOT_A",
+        "name": "Bãi A (Cổng Lý Thường Kiệt)",
         "campus": "CS1_LTK",
-        "location": "Cổng số 1 - 268 Lý Thường Kiệt, Q.10",
-        "allowedVehicleTypes": "MOTORBIKE,ELECTRIC_BIKE,BICYCLE",
-        "capacity": 200,
+        "location": "Cổng Lý Thường Kiệt - Cơ sở 1 (268 Lý Thường Kiệt, Q.10)",
+        "allowedVehicleTypes": "MOTORBIKE,ELECTRIC_BIKE,BICYCLE,CAR",
+        "capacity": 350,
         "occupiedCount": 1,
-        "availableSlots": 199,
-        "occupancyRate": 0.5,
+        "availableSlots": 349,
+        "occupancyRate": 0.3,
         "status": "OPEN",
         "updatedAt": "2026-11-16T12:00:00"
       }
@@ -203,9 +203,9 @@ Response `200`:
 Request (`capacity` bắt buộc, các trường còn lại tùy chọn):
 ```json
 {
-  "name": "Nhà xe Khu A1 (Cổng Lý Thường Kiệt)",
-  "location": "Cổng số 1 - 268 Lý Thường Kiệt, Q.10",
-  "capacity": 220,
+  "name": "Bãi A (Cổng Lý Thường Kiệt)",
+  "location": "Cổng Lý Thường Kiệt - Cơ sở 1 (268 Lý Thường Kiệt, Q.10)",
+  "capacity": 360,
   "status": "OPEN"
 }
 ```

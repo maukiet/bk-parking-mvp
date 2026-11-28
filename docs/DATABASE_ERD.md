@@ -3,7 +3,7 @@
 Tài liệu kỹ thuật nội bộ Backend - Dự án **BK Parking MVP** (CO3011 - HK261).
 - **Phụ trách chính:** TV1 (Backend Lead) phối hợp TV2 (Backend Dev) và TV3 (bổ sung migration V3).
 - **Hệ quản trị CSDL:** PostgreSQL 16+ (hỗ trợ H2 `MODE=PostgreSQL` cho local dev và test).
-- **Flyway Migrations:** `V1__init_schema.sql`, `V2__seed_demo_data.sql`, `V3__tv3_vehicle_management_api.sql`.
+- **Flyway Migrations:** `V1__init_schema.sql`, `V2__seed_demo_data.sql`, `V3__tv3_vehicle_management_api.sql`, `V4__align_5_lots_cs1_task1.sql`.
 
 ---
 
@@ -46,9 +46,9 @@ erDiagram
 
     parking_lots {
         bigint id PK
-        varchar code UK "LOT_A1, LOT_B1, LOT_C1, LOT_B4, LOT_DA_H1"
+        varchar code UK "LOT_A, LOT_B, LOT_C, LOT_D, LOT_E"
         varchar name
-        varchar campus "CS1_LTK, CS2_DI_AN"
+        varchar campus "CS1_LTK (Cơ sở 1 - 268 Lý Thường Kiệt, Q.10)"
         varchar location
         varchar allowed_vehicle_types
         int capacity "CHECK >= 0"
@@ -127,10 +127,10 @@ erDiagram
 
 ## 2. Chi tiết các bảng và ràng buộc dữ liệu cốt lõi
 
-### 2.1. Danh sách bảng (khớp `V1__init_schema.sql` + `V3__tv3_vehicle_management_api.sql`)
+### 2.1. Danh sách bảng (khớp `V1__init_schema.sql`, `V3__tv3_vehicle_management_api.sql` và `V4__align_5_lots_cs1_task1.sql`)
 1. **`roles`**: Định nghĩa 3 vai trò `ROLE_USER`, `ROLE_ADMIN`, `ROLE_STAFF`.
 2. **`users`**: Lưu thông tin tài khoản, mã định danh (`code` - MSSV/MSCB), email, khoa/đơn vị (`department`), vai trò (`role_id`) và trạng thái (`ACTIVE`/`LOCKED`).
-3. **`parking_lots`**: Lưu thông tin 5 bãi đỗ (`LOT_A1`, `LOT_B1`, `LOT_C1`, `LOT_B4`, `LOT_DA_H1`), cơ sở (`campus`), loại xe cho phép (`allowed_vehicle_types` — trong `V3`, `LOT_B4` đã bổ sung thêm `CAR`), sức chứa (`capacity >= 0`) và trạng thái (`OPEN`, `FULL`, `MAINTENANCE`, `CLOSED`).
+3. **`parking_lots`**: Lưu thông tin 5 bãi đỗ theo phạm vi Task 1 Phase 1 tại Cơ sở 1 (`CS1_LTK` - 268 Lý Thường Kiệt, Q.10; chưa triển khai Cơ sở 2 Dĩ An): `LOT_A` (Cổng Lý Thường Kiệt), `LOT_B` (Khu vực nhà A1-A5), `LOT_C` (Khu vực nhà B1-B4), `LOT_D` (Ký túc xá nội trú), `LOT_E` (Khu hành chính & Giảng viên). Trong đó `LOT_A`, `LOT_C` và `LOT_E` hỗ trợ thêm `CAR`, tổng sức chứa demo là `1200`, kèm trạng thái (`OPEN`, `FULL`, `MAINTENANCE`, `CLOSED`).
 4. **`parking_packages`**: Danh mục gói đỗ xe mẫu (`PKG_SEM_261`, `PKG_MONTH_STD`, `PKG_BICYCLE_SEM`).
 5. **`user_packages`**: Gán gói mẫu cho người dùng để Backend kiểm tra quyền gửi xe (`ACTIVE`) khi cấp QR hoặc quét vào cổng.
 6. **`vehicles`**: Lưu thông tin phương tiện đăng ký (`license_plate` unique), trạng thái duyệt (`PENDING`, `APPROVED`, `REJECTED`, `LOCKED`, `CANCELED`), mã định danh `qr_token` (sinh khi duyệt), ảnh giấy tờ mặt trước/sau (`registration_doc_url`, `registration_doc_back_url`), ảnh xe (`vehicle_photo_url`), mối quan hệ chủ xe (`owner_relationship`) và thông tin kiểm duyệt (`reviewed_by`, `reviewed_at`, `rejection_reason`).
