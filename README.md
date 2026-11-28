@@ -71,14 +71,14 @@ Dừng hệ thống: `docker compose down` (hoặc `docker compose down -v` nế
 | Username | Vai trò | Portal đích | Dữ liệu mẫu có sẵn |
 | :--- | :--- | :--- | :--- |
 | `sv.nguyen` | `ROLE_USER` | User Portal | Nguyễn Văn An (2311770) - 1 gói HK261 `ACTIVE`, 1 xe `APPROVED` (`59X3-682.45`), 1 xe `PENDING` (`59T2-119.88`) |
-| `sv.tran` | `ROLE_USER` | User Portal | Trần Thị Bình (2210456) - 1 gói HK261 `ACTIVE`, 1 xe `APPROVED` (`60B8-451.20` đang gửi ở bãi A1), 1 xe `REJECTED` (`72C1-990.12`) |
-| `gv.le` | `ROLE_USER` | User Portal | TS. Lê Hoàng Nam (CB00891) - 1 gói Tháng `ACTIVE`, 1 xe điện `APPROVED` (`51A-888.99` đang gửi ở bãi B4) |
-| `admin` | `ROLE_ADMIN` | Admin Portal | Phạm Quản Trị (ADM001) - Quản lý 5 bãi đỗ và duyệt hồ sơ xe |
+| `sv.tran` | `ROLE_USER` | User Portal | Trần Thị Bình (2210456) - 1 gói HK261 `ACTIVE`, 1 xe `APPROVED` (`60B8-451.20` đang gửi ở Bãi A), 1 xe `REJECTED` (`72C1-990.12`) |
+| `gv.le` | `ROLE_USER` | User Portal | TS. Lê Hoàng Nam (CB00891) - 1 gói Tháng `ACTIVE`, 1 xe điện `APPROVED` (`51A-888.99` đang gửi ở Bãi E) |
+| `admin` | `ROLE_ADMIN` | Admin Portal | Phạm Quản Trị (ADM001) - Quản lý 5 bãi đỗ (Bãi A-E tại Cơ sở 1) và duyệt hồ sơ xe |
 | `staff.gate` | `ROLE_STAFF` | Staff Portal | Võ Văn Bảo Vệ (STF001) - Trạm kiểm soát quét QR vào/ra và tra cứu xe |
 
 ## Kịch bản kiểm thử luồng MVP End-to-End (7 bước)
 
-1. Mở `/public` (Public View) để ghi nhận số xe đang đỗ ban đầu (2 xe: 1 ở Khu A1, 1 ở B4) và số chỗ trống của 5 bãi.
+1. Mở `/public` (Public View) để ghi nhận số xe đang đỗ ban đầu (2 xe: 1 ở Bãi A, 1 ở Bãi E) và số chỗ trống của 5 bãi (`Bãi A` đến `Bãi E` tại Cơ sở 1 - 268 Lý Thường Kiệt, Q.10 theo phạm vi Task 1).
 2. Đăng nhập bằng `sv.tran` tại `/login`, vào mục **Quản lý phương tiện** đăng ký 1 xe mới (kiểm tra trạng thái ban đầu là `PENDING`).
 3. Đăng xuất, đăng nhập bằng `admin`, vào **Duyệt & Quản lý phương tiện** để xem hồ sơ mới và bấm **Duyệt** (hoặc **Từ chối** kèm lý do với xe khác).
 4. Đăng nhập lại bằng `sv.tran`, tải lại trang để xác nhận trạng thái đã cập nhật từ DB, sau đó mở **Mã QR** của xe vừa duyệt.
